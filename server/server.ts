@@ -1,7 +1,7 @@
 import { app } from './src/app';
 import { mongodbInstance } from './src/db/init.mongodb';
 
-const PORT = process.env.PORT || process.env.NODE_PORT || 3000;
+const PORT = process.env.PORT || process.env.NODE_PORT || 8080;
 
 const server = app.listen(PORT, async () => {
   await mongodbInstance.connect();
