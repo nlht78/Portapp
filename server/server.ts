@@ -1,13 +1,11 @@
 import { app } from './src/app';
 import { mongodbInstance } from './src/db/init.mongodb';
 
-const server = app.listen(process.env.NODE_PORT, async () => {
+const PORT = process.env.PORT || process.env.NODE_PORT || 3000;
+
+const server = app.listen(PORT, async () => {
   await mongodbInstance.connect();
-  console.log(
-    process.env.NODE_ENV,
-    'hello world from port',
-    process.env.NODE_PORT
-  );
+  console.log(process.env.NODE_ENV, 'hello world from port', PORT);
 });
 
 process.on('SIGINT', () => cleanup('SIGINT'));
