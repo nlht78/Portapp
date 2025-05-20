@@ -4,7 +4,7 @@
   "description": "",
   "main": "app.ts",
   "scripts": {
-    "start": "pm2 start ecosystem.config.js",
+    "start": "node dist/server.js",
     "dev": "nodemon -L --inspect server.ts",
     "start:logger": "nodemon src/api/loggers/discord.log.ts",
     "gen:apikey": "ts-node src/scripts/genApiKey.ts",
