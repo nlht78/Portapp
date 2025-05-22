@@ -14,15 +14,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const data = Object.fromEntries(formData.entries()) as any;
         const user = await isAuthenticated(request);
 
-        // Kiểm tra các trường bắt buộc
-        if (!data.name || !data.baseGoal) {
-          return {
-            kpi: null,
-            toast: { message: 'Vui lòng điền đầy đủ thông tin bắt buộc (Tên KPI và Mục tiêu KPI)'
-                    , type: 'error' },
-          };
-        }
-
         // Format data before sending
         const formattedData = {
           ...data,
