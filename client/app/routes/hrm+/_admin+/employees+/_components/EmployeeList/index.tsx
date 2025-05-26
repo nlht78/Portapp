@@ -1,5 +1,6 @@
-import { Link, Form } from '@remix-run/react';
+import { Link, useFetcher, useNavigate } from '@remix-run/react';
 import { toast } from 'react-toastify';
+import { useEffect, useRef } from 'react';
 import Defer from '~/components/Defer';
 import { IEmployee } from '~/interfaces/employee.interface';
 
@@ -8,6 +9,39 @@ export default function EmployeeList({
 }: {
   employees: Promise<IEmployee[]>;
 }) {
+  const fetcher = useFetcher();
+  const navigate = useNavigate();
+  const toastId = useRef<string | number | null>(null);
+
+  useEffect(() => {
+    // Handle loading state
+    if (fetcher.state === 'submitting') {
+      toastId.current = toast.loading('Đang xử lý...');
+    }
+    
+    // Handle success or error based on fetcher state
+    if (fetcher.state === 'idle' && toastId.current) {
+      if (fetcher.data instanceof Error || (typeof fetcher.data === 'object' && fetcher.data && 'status' in fetcher.data)) {
+        // Error case
+        toast.update(toastId.current, {
+          render: (fetcher.data as any).statusText || 'Có lỗi xảy ra',
+          type: 'error',
+          isLoading: false,
+          autoClose: 3000
+        });
+      } else {
+        // Success case
+        toast.update(toastId.current, {
+          render: 'Xóa nhân viên thành công',
+          type: 'success',
+          isLoading: false,
+          autoClose: 3000
+        });
+      }
+      toastId.current = null;
+    }
+  }, [fetcher.state, fetcher.data]);
+
   return (
     <div className='bg-white rounded-lg shadow-sm overflow-hidden'>
       <div className='overflow-x-auto'>
@@ -188,7 +222,7 @@ export default function EmployeeList({
                           </span>
                         </Link>
 
-                        <Form
+                        <fetcher.Form
                           method="delete"
                           action={`/hrm/employees/${employee.id}`}
                           onSubmit={(e) => {
@@ -206,7 +240,7 @@ export default function EmployeeList({
                               delete
                             </span>
                           </button>
-                        </Form>
+                        </fetcher.Form>
                       </div>
                     </td>
                   </tr>

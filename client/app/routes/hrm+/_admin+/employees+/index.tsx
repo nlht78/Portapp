@@ -1,13 +1,10 @@
-import { ActionFunctionArgs, LoaderFunctionArgs } from '@remix-run/node';
-import { useLoaderData, useNavigate, useSearchParams } from '@remix-run/react';
-import { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
-import Defer from '~/components/Defer';
-import { authenticator, isAuthenticated } from '~/services/auth.server';
+import { LoaderFunctionArgs } from '@remix-run/node';
+import { useLoaderData, useNavigate } from '@remix-run/react';
+import { isAuthenticated } from '~/services/auth.server';
 import { getEmployees } from '~/services/employee.server';
 import EmployeeList from './_components/EmployeeList';
 import ContentHeader from '../_components/ContentHeader';
-import { IEmployee } from '~/interfaces/employee.interface';
+import Defer from '~/components/Defer';
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
@@ -30,27 +27,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export default function HRMEmployees() {
   const { employees } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-
-  // Handle toast messages from URL parameters
-  useEffect(() => {
-    const toastMessage = searchParams.get('toast');
-    const toastType = searchParams.get('toastType') as 'success' | 'error';
-
-    if (toastMessage) {
-      if (toastType === 'success') {
-        toast.success(toastMessage);
-      } else {
-        toast.error(toastMessage);
-      }
-
-      // Clear toast parameters from URL
-      const newSearchParams = new URLSearchParams(searchParams);
-      newSearchParams.delete('toast');
-      newSearchParams.delete('toastType');
-      navigate('?' + newSearchParams.toString(), { replace: true });
-    }
-  }, [searchParams, navigate]);
 
   return (
     <>
