@@ -1,4 +1,4 @@
-import { Link } from '@remix-run/react';
+import { Link, Form } from '@remix-run/react';
 import Defer from '~/components/Defer';
 import { IEmployee } from '~/interfaces/employee.interface';
 
@@ -187,22 +187,25 @@ export default function EmployeeList({
                           </span>
                         </Link>
 
-                        <button
-                          className='text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-50 transition-all'
-                          onClick={() => {
-                            if (
-                              confirm(
-                                'Bạn có chắc chắn muốn xóa nhân viên này không?',
-                              )
-                            ) {
-                              // Handle delete action here
+                        <Form
+                          method="delete"
+                          action={`/hrm/employees/${employee.id}`}
+                          onSubmit={(e) => {
+                            if (!confirm('Bạn có chắc chắn muốn xóa nhân viên này không?')) {
+                              e.preventDefault();
                             }
                           }}
+                          className="inline"
+                        >
+                          <button
+                            type="submit"
+                            className='text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-50 transition-all'
                         >
                           <span className='material-symbols-outlined text-sm'>
                             delete
                           </span>
                         </button>
+                        </Form>
                       </div>
                     </td>
                   </tr>

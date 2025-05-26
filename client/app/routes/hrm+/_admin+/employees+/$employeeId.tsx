@@ -1,11 +1,17 @@
-import { getEmployeeById } from '~/services/employee.server';
+import { getEmployeeById, deleteEmployee } from '~/services/employee.server';
 import EmployeeProfileHeader from '../../_components/EmployeeProfileHeader';
-import { LoaderFunctionArgs } from '@remix-run/node';
+import { LoaderFunctionArgs, ActionFunctionArgs, redirect } from '@remix-run/node';
 import { authenticator, isAuthenticated } from '~/services/auth.server';
 import { Link, useLoaderData } from '@remix-run/react';
 import Defer from '~/components/Defer';
 import AdminAttendanceLog from '../_components/AttendanceLog';
 import { getLast7DaysStats } from '~/services/attendance.server';
+
+// Define response types
+type ActionResponse = {
+  toast: { message: string; type: 'success' | 'error' };
+  redirectTo?: string;
+};
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   try {
@@ -26,6 +32,65 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     return { employee: null, last7DaysStats: Promise.resolve([]) };
   }
 };
+
+export async function action({ request, params }: ActionFunctionArgs): Promise<ActionResponse | Response> {
+  try {
+    const sessionUser = await isAuthenticated(request);
+    if (!sessionUser) {
+      return {
+        toast: {
+          message: 'Bạn không có quyền thực hiện hành động này',
+          type: 'error'
+        }
+      };
+    }
+
+    if (request.method.toLowerCase() === 'delete') {
+      const { employeeId } = params;
+      if (!employeeId) {
+        return {
+          toast: {
+            message: 'ID nhân viên không hợp lệ',
+            type: 'error'
+          }
+        };
+      }
+
+      await deleteEmployee(employeeId, sessionUser);
+      
+      return redirect('/hrm/employees?toast=Xóa nhân viên thành công&toastType=success');
+    }
+
+    return {
+      toast: {
+        message: 'Phương thức không được hỗ trợ',
+        type: 'error'
+      }
+    };
+
+  } catch (error) {
+    console.error('Action Error:', error);
+    let errorMessage = 'Đã xảy ra lỗi khi xóa nhân viên';
+
+    if (error instanceof Response) {
+      if (error.status === 403) {
+        errorMessage = 'Bạn không có quyền xóa nhân viên này';
+      } else {
+        errorMessage = `Lỗi từ máy chủ: ${error.statusText || error.status}`;
+      }
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+
+    return {
+      toast: {
+        message: errorMessage,
+        type: 'error'
+      }
+    };
+  }
+}
+
 export default function EmployeeDetails() {
   const { employee, last7DaysStats } = useLoaderData<typeof loader>();
 

@@ -12,6 +12,7 @@ import {
   removeNestedNullish,
 } from '@utils/index';
 import { UserModel } from '../models/user.model';
+import { KPIModel } from '../models/kpi.model';
 import {
   ICreateEmployeeWithUserData,
   IUpdateEmployeeData,
@@ -348,13 +349,19 @@ const deleteEmployee = async (id: string) => {
       throw new Error('Failed to delete user');
     }
 
+    // Xóa tất cả KPI liên quan đến employee
+    await KPIModel.deleteMany(
+      { assigneeId: employee.userId },
+      { session }
+    );
+
     // Commit transaction
     await session.commitTransaction();
 
     return {
       success: true,
       message:
-        'Employee and associated user data have been deleted successfully',
+        'Employee and all associated data have been deleted successfully',
     };
   } catch (error) {
     // Rollback transaction nếu có lỗi
