@@ -1,5 +1,5 @@
 import { ActionFunctionArgs, LoaderFunctionArgs } from '@remix-run/node';
-import { useLoaderData, useNavigate, useFetcher } from '@remix-run/react';
+import { useLoaderData, useNavigate, useSearchParams } from '@remix-run/react';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import Defer from '~/components/Defer';
@@ -9,92 +9,51 @@ import EmployeeList from './_components/EmployeeList';
 import ContentHeader from '../_components/ContentHeader';
 import { IEmployee } from '~/interfaces/employee.interface';
 
-type ToastType = 'success' | 'error';
-type ToastMessage = {
-  message: string;
-  type: ToastType;
-} | null;
-
-interface ActionData {
-  toast?: ToastMessage;
-}
-
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     const user = await isAuthenticated(request);
     
-    // Check for toast message in headers from redirect
-    const url = new URL(request.url);
-    const toastMessage = url.searchParams.get('toast');
-    const toastType = url.searchParams.get('toastType') as ToastType;
-
     return {
       employees: getEmployees(user!).catch((e) => {
         console.error(e);
         return [];
-      }),
-      toast: toastMessage ? { message: toastMessage, type: toastType } : null,
+      })
     };
   } catch (error) {
     console.error(error);
     return { 
-      employees: Promise.resolve([]),
-      toast: null as ToastMessage
+      employees: Promise.resolve([])
     };
   }
 };
 
 export default function HRMEmployees() {
-  const { employees, toast: loaderToast } = useLoaderData<typeof loader>();
-  const fetcher = useFetcher<ActionData>();
+  const { employees } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  // Handle toast notifications from URL params
+  // Handle toast messages from URL parameters
   useEffect(() => {
-    const url = new URL(window.location.href);
-    const toastMessage = url.searchParams.get('toast');
-    const toastType = (url.searchParams.get('toastType') || 'success') as ToastType;
-    
+    const toastMessage = searchParams.get('toast');
+    const toastType = searchParams.get('toastType') as 'success' | 'error';
+
     if (toastMessage) {
       if (toastType === 'success') {
         toast.success(toastMessage);
       } else {
         toast.error(toastMessage);
       }
-      
-      // Clear toast params from URL
-      url.searchParams.delete('toast');
-      url.searchParams.delete('toastType');
-      window.history.replaceState({}, '', url.toString());
-    }
-  }, []);
 
-  // Handle toast notifications from loader
-  useEffect(() => {
-    if (loaderToast) {
-      if (loaderToast.type === 'success') {
-        toast.success(loaderToast.message);
-      } else {
-        toast.error(loaderToast.message);
-      }
+      // Clear toast parameters from URL
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('toast');
+      newSearchParams.delete('toastType');
+      navigate('?' + newSearchParams.toString(), { replace: true });
     }
-  }, [loaderToast]);
-
-  // Handle fetcher toast notifications
-  useEffect(() => {
-    if (fetcher.data?.toast) {
-      const { message, type } = fetcher.data.toast;
-      if (type === 'success') {
-        toast.success(message);
-      } else {
-        toast.error(message);
-      }
-    }
-  }, [fetcher.data]);
+  }, [searchParams, navigate]);
 
   return (
     <>
-      {/* Content Header */}
       <ContentHeader
         title='Trang chủ'
         actionContent={

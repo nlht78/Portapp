@@ -1,4 +1,5 @@
 import { Link, Form } from '@remix-run/react';
+import { toast } from 'react-toastify';
 import Defer from '~/components/Defer';
 import { IEmployee } from '~/interfaces/employee.interface';
 
@@ -200,11 +201,11 @@ export default function EmployeeList({
                           <button
                             type="submit"
                             className='text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-50 transition-all'
-                        >
-                          <span className='material-symbols-outlined text-sm'>
-                            delete
-                          </span>
-                        </button>
+                          >
+                            <span className='material-symbols-outlined text-sm'>
+                              delete
+                            </span>
+                          </button>
                         </Form>
                       </div>
                     </td>

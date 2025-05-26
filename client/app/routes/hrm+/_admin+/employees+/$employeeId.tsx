@@ -33,40 +33,26 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   }
 };
 
-export async function action({ request, params }: ActionFunctionArgs): Promise<ActionResponse | Response> {
+export async function action({ request, params }: ActionFunctionArgs) {
   try {
     const sessionUser = await isAuthenticated(request);
     if (!sessionUser) {
-      return {
-        toast: {
-          message: 'Bạn không có quyền thực hiện hành động này',
-          type: 'error'
-        }
-      };
+      throw new Error('Bạn không có quyền thực hiện hành động này');
     }
 
     if (request.method.toLowerCase() === 'delete') {
       const { employeeId } = params;
       if (!employeeId) {
-        return {
-          toast: {
-            message: 'ID nhân viên không hợp lệ',
-            type: 'error'
-          }
-        };
+        throw new Error('ID nhân viên không hợp lệ');
       }
 
       await deleteEmployee(employeeId, sessionUser);
       
+      // Redirect to employees list with success message
       return redirect('/hrm/employees?toast=Xóa nhân viên thành công&toastType=success');
     }
 
-    return {
-      toast: {
-        message: 'Phương thức không được hỗ trợ',
-        type: 'error'
-      }
-    };
+    throw new Error('Phương thức không được hỗ trợ');
 
   } catch (error) {
     console.error('Action Error:', error);
@@ -82,12 +68,8 @@ export async function action({ request, params }: ActionFunctionArgs): Promise<A
       errorMessage = error.message;
     }
 
-    return {
-      toast: {
-        message: errorMessage,
-        type: 'error'
-      }
-    };
+    // Redirect back to employees list with error message
+    return redirect(`/hrm/employees?toast=${errorMessage}&toastType=error`);
   }
 }
 
