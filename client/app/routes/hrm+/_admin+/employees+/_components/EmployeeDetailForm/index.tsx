@@ -157,7 +157,7 @@ export default function EmployeeDetailForm({
   return (
     <fetcher.Form
       id={formId}
-      method='POST'
+      method='PUT'
       className='grid grid-cols-1 lg:grid-cols-3 gap-6'
     >
       {/* Left Column - Personal Information */}
