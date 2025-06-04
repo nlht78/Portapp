@@ -13,11 +13,11 @@ export default function CheckOutCard({
   const [isDisabled, setIsDisabled] = useState(false);
 
   useEffect(() => {
-     // Disable button if:
-    // 1. Loading
-    // 2. No check-in time (haven't checked in)
-    // 3. Already checked out
-    setIsDisabled(loading || !attendance?.checkInTime || !!attendance?.checkOutTime);
+    if (loading || !attendance?.checkInTime || attendance.checkOutTime) {
+      setIsDisabled(true);
+    } else {
+      setIsDisabled(false);
+    }
   }, [loading, attendance?.checkInTime, attendance?.checkOutTime]);
 
   return (
