@@ -13,6 +13,7 @@ import {
 } from '@utils/index';
 import { UserModel } from '../models/user.model';
 import { KPIModel } from '../models/kpi.model';
+import { AttendanceModel } from '../models/attendance.model';
 import {
   ICreateEmployeeWithUserData,
   IUpdateEmployeeData,
@@ -352,6 +353,12 @@ const deleteEmployee = async (id: string) => {
     // Xóa tất cả KPI liên quan đến employee
     await KPIModel.deleteMany(
       { assigneeId: employee.userId },
+      { session }
+    );
+
+    // Xóa tất cả dữ liệu chấm công của employee
+    await AttendanceModel.deleteMany(
+      { employeeId: id },
       { session }
     );
 
