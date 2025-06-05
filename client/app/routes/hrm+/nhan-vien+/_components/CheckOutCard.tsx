@@ -15,9 +15,17 @@ export default function CheckOutCard({
   useEffect(() => {
     if (loading || !attendance?.checkInTime || attendance.checkOutTime) {
       setIsDisabled(true);
+      console.log('Debug - CheckOut disabled because:', {
+        loading,
+        hasCheckIn: !!attendance?.checkInTime,
+        hasCheckOut: !!attendance?.checkOutTime,
+        attendance
+      });
     } else {
       setIsDisabled(false);
+      console.log('Debug - CheckOut enabled with attendance:', attendance);
     }
+
   }, [loading, attendance?.checkInTime, attendance?.checkOutTime]);
 
   return (

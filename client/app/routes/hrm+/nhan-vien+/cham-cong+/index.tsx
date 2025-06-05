@@ -237,9 +237,12 @@ export default function Attendance() {
             {(data) => {
               const now = new Date();
               now.setHours(0, 0, 0, 0);
+              console.log('Debug - Current data:', data);
               const today = data.find(
-                (item) => item.date === now.toISOString(),
+                (item) => new Date(item.date).setHours(0, 0, 0, 0) === now.getTime()
               );
+              console.log('Debug - Found today record:', today);
+
 
               return (
                 <>
