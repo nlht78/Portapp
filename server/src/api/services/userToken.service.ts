@@ -156,12 +156,7 @@ export class UserTokenService {
       isActive: userToken.isActive,
       createdAt: userToken.createdAt,
       updatedAt: userToken.updatedAt,
-      user: {
-        id: userToken.userId._id.toString(),
-        firstName: userToken.userId.firstName,
-        lastName: userToken.userId.lastName,
-        email: userToken.userId.email,
-      },
+      userId: userToken.userId.toString(),
     };
   }
 } 

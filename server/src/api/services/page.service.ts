@@ -45,7 +45,7 @@ const getPublishedPages = async ({
       }),
       pst_isPublished: true,
     },
-    ['-pst_content']
+    '-pst_content'
   ).populate('pst_thumbnail', '-__v');
   return getReturnList(pages);
 };
@@ -53,7 +53,7 @@ const getPublishedPages = async ({
 const getAllPages = async (query: any) => {
   const pages = await PageModel.find(
     { ...formatAttributeName(removeNestedNullish(query), PAGE.PREFIX) },
-    ['-pst_content']
+    '-pst_content'
   ).populate('pst_thumbnail', '-__v');
   return getReturnList(pages);
 };

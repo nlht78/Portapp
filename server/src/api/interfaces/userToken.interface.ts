@@ -74,12 +74,7 @@ export interface IUserTokenResponseData {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
-  user: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-  };
+  userId: string;
 }
 
 // Interface cho statistics

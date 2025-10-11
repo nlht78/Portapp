@@ -1,17 +1,18 @@
-const express = require('express');
-const router = express.Router();
-const { ProjectController } = require('../../controllers/project.controller');
+import express from 'express';
+import { ProjectController } from '../../controllers/project.controller';
+
+const projectRouter = express.Router();
 
 // Get complete project data (roadmap, earning mechanisms, updates)
-router.get('/:tokenId', ProjectController.getProjectData);
+projectRouter.get('/:tokenId', ProjectController.getProjectData);
 
 // Get project updates only
-router.get('/:tokenId/updates', ProjectController.getProjectUpdates);
+projectRouter.get('/:tokenId/updates', ProjectController.getProjectUpdates);
 
 // Get project roadmap only
-router.get('/:tokenId/roadmap', ProjectController.getProjectRoadmap);
+projectRouter.get('/:tokenId/roadmap', ProjectController.getProjectRoadmap);
 
 // Get earning mechanisms only
-router.get('/:tokenId/earning', ProjectController.getEarningMechanisms);
+projectRouter.get('/:tokenId/earning', ProjectController.getEarningMechanisms);
 
-module.exports = router; 
+export default projectRouter; 

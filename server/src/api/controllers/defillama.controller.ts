@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { DeFiLlamaService } from '../services/defillama.service';
-import { SuccessResponse } from '../core/httpStatusCode';
+import { OK } from '../core/success.response';
 import { BadRequestError } from '../core/errors';
 
 export class DeFiLlamaController {

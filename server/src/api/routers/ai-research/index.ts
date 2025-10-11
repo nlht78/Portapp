@@ -1,14 +1,15 @@
-const express = require('express');
-const router = express.Router();
-const { AIResearchController } = require('../../controllers/ai-research.controller');
+import express from 'express';
+import { AIResearchController } from '../../controllers/ai-research.controller';
+
+const aiResearchRouter = express.Router();
 
 // Main AI research endpoint
-router.post('/:tokenId', AIResearchController.researchToken);
+aiResearchRouter.post('/:tokenId', AIResearchController.researchToken);
 
 // Get research history
-router.get('/:tokenId/history', AIResearchController.getResearchHistory);
+aiResearchRouter.get('/:tokenId/history', AIResearchController.getResearchHistory);
 
 // Get research insights
-router.get('/:tokenId/insights', AIResearchController.getResearchInsights);
+aiResearchRouter.get('/:tokenId/insights', AIResearchController.getResearchInsights);
 
-module.exports = router; 
+export default aiResearchRouter; 

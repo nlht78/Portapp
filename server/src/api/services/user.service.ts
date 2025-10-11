@@ -12,11 +12,7 @@ import { USER } from '../constants';
 
 const getUsers = async (query: any = {}) => {
   // Loại bỏ các trường nhạy cảm khi trả về danh sách users
-  const users = await UserModel.find(query, [
-    '-usr_password',
-    '-usr_salt',
-    '-__v',
-  ])
+  const users = await UserModel.find(query, '-usr_password -usr_salt -__v')
     .sort({ createdAt: -1 })
     // .populate('usr_role', '-__v -grants') // Removed - role system deleted
     .populate('usr_avatar', '-__v');
@@ -73,11 +69,7 @@ const updateUser = async (userId: string, user: IUserAttrs) => {
 };
 
 const getCurrentUser = async (userId: string) => {
-  const user = await UserModel.findById(userId, [
-    '-usr_password',
-    '-usr_salt',
-    '-__v',
-  ])
+  const user = await UserModel.findById(userId, '-usr_password -usr_salt -__v')
     // .populate('usr_role', '-__v -grants') // Removed - role system deleted
     .populate('usr_avatar', '-__v');
 

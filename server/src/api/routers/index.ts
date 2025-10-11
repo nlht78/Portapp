@@ -19,8 +19,8 @@ router.use('/coingecko', require('./coingecko'));
 router.use('/multi-pricing', require('./multi-pricing'));
 router.use('/token-holders', require('./tokenHolders'));
 router.use('/transaction-history', require('./transactionHistory'));
-router.use('/project', require('./project'));
-router.use('/ai-research', require('./ai-research'));
+router.use('/project', require('./project').default);
+router.use('/ai-research', require('./ai-research').default);
 router.use('/defillama', require('./defillama'));
 
 router.use(checkApiKey);
