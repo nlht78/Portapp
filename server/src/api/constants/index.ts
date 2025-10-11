@@ -9,9 +9,9 @@ export * from './image.constant';
 export * from './branch.constant';
 export * from './attendance.constant';
 export * from './resource.constant';
-export * from './role.constant';
-export * from './customer.constant';
-export * from './caseService.constant';
+// export * from './role.constant'; // Removed - role system deleted
+// export * from './customer.constant'; // Removed - CRM system deleted
+// export * from './caseService.constant'; // Removed - CRM system deleted
 
 export const KEYTOKEN = {
   DOCUMENT_NAME: 'KeyToken',

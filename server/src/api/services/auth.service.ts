@@ -21,7 +21,7 @@ import { createUser, findUserById } from '../models/repositories/user.repo';
 import { UserModel } from '../models/user.model';
 import { sendVerificationEmail, sendTempPassEmail } from './email.service';
 import { deleteOTPByEmail, getOTPByToken } from './otp.service';
-import { getRoles } from './role.service';
+// import { getRoles } from './role.service'; // Removed - role system deleted
 import { parseJwt, verifyJwt } from '../helpers/jwt.helper';
 
 export class AuthService {
@@ -85,6 +85,43 @@ export class AuthService {
     return await sendVerificationEmail(email);
   }
 
+  // Simplified signup without email verification
+  static async signUpSimple({ email, username, password }: { email: string; username: string; password: string }) {
+    const foundUser = await UserModel.findOne({ usr_email: email });
+    if (foundUser) {
+      throw new Error('Email already exists');
+    }
+
+    const foundUsername = await UserModel.findOne({ usr_username: username });
+    if (foundUsername) {
+      throw new Error('Username already exists');
+    }
+
+    const salt = bcrypt.genSaltSync(10);
+    const hashPassword = await bcrypt.hash(password, salt);
+
+    const newUser = await createUser({
+      email,
+      username,
+      password: hashPassword,
+      salt: salt,
+      firstName: email.split('@')[0],
+      lastName: 'User', // Default lastName
+      slug: username,
+      status: USER.STATUS.ACTIVE,
+      role: 'user', // Default role since role system is removed
+    });
+
+    if (!newUser) {
+      throw new InternalServerError('Fail to create new user!');
+    }
+
+    return {
+      ok: true,
+      message: 'User created successfully',
+    };
+  }
+
   static async verifyEmailToken({ token }: { token: string }) {
     if (!token) {
       throw new BadRequestError('Invalid token');
@@ -102,10 +139,8 @@ export class AuthService {
       throw new BadRequestError('Email already exists');
     }
 
-    const roles = await getRoles({ name: 'admin' });
-    if (!roles || !roles.length) {
-      throw new InternalServerError('Fail to get role!');
-    }
+    // Role system removed - using default role
+    const defaultRoleId = 'default-role-id'; // Default role since role system is removed
 
     const salt = bcrypt.genSaltSync(10);
     const tempPass = randomBytes(8).toString('hex');
@@ -117,10 +152,10 @@ export class AuthService {
       password: hashPassword,
       salt: salt,
       firstName: email.split('@')[0],
-      lastName: '',
+      lastName: 'User', // Default lastName
       slug: email.split('@')[0],
       status: USER.STATUS.ACTIVE,
-      role: roles[0].id,
+      role: defaultRoleId,
     });
 
     if (!newUser) {

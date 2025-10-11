@@ -7,7 +7,7 @@ export let sessionStorage = createCookieSessionStorage({
     sameSite: 'strict', // this helps with CSRF
     path: '/', // remember to add this so the cookie will work in all routes
     httpOnly: true, // for security reasons, make this cookie http only
-    secrets: [process.env.SESSION_SECRET || 's3cr3t'], // replace this with an actual secret
+    secrets: [process.env.SESSION_SECRET || 'change-this-in-production'], // replace this with an actual secret
     secure: process.env.NODE_ENV === 'production', // enable this in prod only
   },
 });

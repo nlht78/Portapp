@@ -1,5 +1,4 @@
 import { ClientSession, HydratedDocument, Model, Types } from 'mongoose';
-import { IRole, IRoleResponseData } from './role.interface';
 
 export interface IRawUser {
   usr_id: Types.ObjectId;
@@ -16,13 +15,13 @@ export interface IRawUser {
   usr_msisdn?: string;
   usr_sex?: string;
   usr_status: 'active' | 'inactive';
-  usr_role: Types.ObjectId;
+  usr_role?: string; // Changed to optional string since role system is removed
 }
 
 export interface IUser extends HydratedDocument<IRawUser> {}
 
 export interface IUserDetail extends Omit<IUser, 'usr_role'> {
-  usr_role: IRoleResponseData;
+  usr_role?: string; // Changed to optional string since role system is removed
 }
 
 export interface IUserAttrs {
@@ -40,7 +39,7 @@ export interface IUserAttrs {
   msisdn?: string;
   sex?: string;
   status: 'active' | 'inactive';
-  role: Types.ObjectId;
+  role?: string; // Changed to optional string since role system is removed
 }
 
 export interface IUserModel extends Model<IUser> {
@@ -66,5 +65,5 @@ export interface IUserResponseData {
   msisdn?: string;
   sex?: string;
   status: string;
-  role: IRole;
+  role?: string; // Changed to optional string since role system is removed
 }

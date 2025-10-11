@@ -18,7 +18,7 @@ const getUsers = async (query: any = {}) => {
     '-__v',
   ])
     .sort({ createdAt: -1 })
-    .populate('usr_role', '-__v -grants')
+    // .populate('usr_role', '-__v -grants') // Removed - role system deleted
     .populate('usr_avatar', '-__v');
 
   return getReturnList(users);
@@ -42,7 +42,7 @@ const changePassword = async (userId: string, password: string) => {
       projection: { usr_password: 0, usr_salt: 0, usr_role: 0, __v: 0 },
     }
   )
-    .populate('usr_role', '-__v -grants')
+    // .populate('usr_role', '-__v -grants') // Removed - role system deleted
     .populate('usr_avatar', '-__v');
 
   if (!user) throw new NotFoundError('User not found');
@@ -64,7 +64,7 @@ const updateUser = async (userId: string, user: IUserAttrs) => {
       projection: { usr_password: 0, usr_salt: 0, usr_role: 0, __v: 0 },
     }
   )
-    .populate('usr_role', '-__v -grants')
+    // .populate('usr_role', '-__v -grants') // Removed - role system deleted
     .populate('usr_avatar', '-__v');
 
   if (!foundUser) throw new NotFoundError('foundUser not found');
@@ -78,7 +78,7 @@ const getCurrentUser = async (userId: string) => {
     '-usr_salt',
     '-__v',
   ])
-    .populate('usr_role', '-__v -grants')
+    // .populate('usr_role', '-__v -grants') // Removed - role system deleted
     .populate('usr_avatar', '-__v');
 
   if (!user) throw new NotFoundError('User not found');
@@ -88,15 +88,15 @@ const getCurrentUser = async (userId: string) => {
 
 const getUserById = async (userId: string) => {
   const user = await UserModel.findById(userId)
-    .populate({
-      path: 'usr_role',
-      populate: {
-        path: 'grants',
-        populate: {
-          path: 'resourceId',
-        },
-      },
-    })
+    // .populate({
+    //   path: 'usr_role',
+    //   populate: {
+    //     path: 'grants',
+    //     populate: {
+    //       path: 'resourceId',
+    //     },
+    //   },
+    // }) // Removed - role system deleted
     .populate('usr_avatar', '-__v');
 
   if (!user) {

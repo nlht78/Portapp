@@ -98,6 +98,15 @@ const login = async (username: string, password: string, browserId: string) => {
   return res as ISessionUser;
 };
 
+const register = async (email: string, username: string, password: string) => {
+  const res = await fetcher('/auth/signup-simple', {
+    method: 'POST',
+    body: JSON.stringify({ email, username, password }),
+  });
+
+  return res;
+};
+
 const logout = async (request: ISessionUser) => {
   await fetcher('/auth/signout', {
     method: 'POST',
@@ -123,4 +132,4 @@ const refreshTokenHandler = async (request: Request) => {
   return res as ISessionUser;
 };
 
-export { authenticator, logout, isAuthenticated };
+export { authenticator, logout, isAuthenticated, register };

@@ -78,4 +78,4 @@ async function authentication(req: Request, res: Response, next: NextFunction) {
   return next();
 }
 
-export { authenticationV2 };
+export { authentication, authenticationV2 };

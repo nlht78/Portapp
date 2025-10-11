@@ -17,12 +17,12 @@ const findUserByEmail = async (email: string) => {
 
 const findUserById = async (id: string) => {
   if (isValidObjectId(id)) {
-    return await UserModel.findById(id).populate('usr_role', 'name slug');
+    return await UserModel.findById(id); // Removed role populate - role system deleted
   }
 
   return await UserModel.findOne({
     $or: [{ usr_email: id }, { usr_username: id }],
-  }).populate('usr_role', 'name slug');
+  }); // Removed role populate - role system deleted
 };
 
 export { getAllUsers, createUser, findUserByEmail, findUserById };

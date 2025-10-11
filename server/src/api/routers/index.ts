@@ -14,26 +14,25 @@ router.get('/check-status', CheckController.checkStatus);
 
 router.get('/auth/verify-email', AuthController.verifyEmailToken);
 
+// Public routes (no API key required)
+router.use('/coingecko', require('./coingecko'));
+router.use('/multi-pricing', require('./multi-pricing'));
+router.use('/token-holders', require('./tokenHolders'));
+router.use('/transaction-history', require('./transactionHistory'));
+router.use('/project', require('./project'));
+router.use('/ai-research', require('./ai-research'));
+router.use('/defillama', require('./defillama'));
+
 router.use(checkApiKey);
 //check api key's permission
 router.use(checkPermission('0000'));
 
-router.use('/categories', require('./category'));
-router.use('/bookings', require('./booking'));
-router.use('/branches', require('./branch'));
 router.use('/images', require('./image'));
 router.use('/email', require('./email'));
 router.use('/users', require('./user'));
 router.use('/pages', require('./page'));
 router.use('/auth', require('./auth'));
 router.use('/app', require('./app'));
-router.use('/office-ips', require('./officeIP'));
-router.use('/attendance', require('./attendance'));
-router.use('/employees', require('./employee'));
-router.use('/roles', require('./role'));    
 router.use('/resources', require('./resource'));
-router.use('/notifications', require('./notification'));
-router.use('/kpi', require('./kpi'));
-router.use('/customers', require('./customer'));
-router.use('/case-services', require('./caseService'));
+router.use('/user-tokens', require('./userToken'));
 module.exports = router;

@@ -6,6 +6,7 @@ import { AuthController } from '../../controllers/auth.controller';
 const authRouter = express.Router();
 
 authRouter.post('/signup', AuthController.signUp);
+authRouter.post('/signup-simple', AuthController.signUpSimple);
 authRouter.post('/signin', AuthController.signIn);
 authRouter.post('/refresh-token', AuthController.refreshToken);
 

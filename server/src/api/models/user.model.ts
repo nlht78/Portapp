@@ -1,6 +1,7 @@
 import { model, Schema, Types, Model, ClientSession } from 'mongoose';
-import { IMAGE, ROLE, USER } from '../constants';
-import { IUser, IUserModel } from '../interfaces/user.interface';
+import { IMAGE, USER } from '../constants';
+import { IUser, IUserModel, IUserAttrs } from '../interfaces/user.interface';
+import { formatAttributeName } from '../utils';
 
 const userSchema = new Schema<IUser, IUserModel>(
   {
@@ -60,9 +61,8 @@ const userSchema = new Schema<IUser, IUserModel>(
       enum: ['active', 'inactive'],
     },
     usr_role: {
-      type: Schema.Types.ObjectId,
-      ref: ROLE.DOCUMENT_NAME,
-      required: true,
+      type: String,
+      default: 'user', // Default role since role system is removed
     },
   },
   {
@@ -71,8 +71,12 @@ const userSchema = new Schema<IUser, IUserModel>(
   }
 );
 
-userSchema.statics.build = (attrs: IUser, session?: ClientSession) => {
-  return UserModel.create(attrs, { session });
+userSchema.statics.build = async (attrs: IUserAttrs, session?: ClientSession) => {
+  const user = new UserModel(formatAttributeName(attrs, USER.PREFIX));
+  if (session) {
+    return await user.save({ session });
+  }
+  return await user.save();
 };
 
 export const UserModel = model<IUser, IUserModel>(

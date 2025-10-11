@@ -16,6 +16,17 @@ export class AuthController {
     });
   }
 
+  static async signUpSimple(req: Request, res: Response, next: NextFunction) {
+    CREATED({
+      res,
+      message: 'Register Success!',
+      metadata: await AuthService.signUpSimple(req.body),
+      link: {
+        signIn: { href: '/api/v1/auth/signin', method: 'POST' },
+      },
+    });
+  }
+
   static async signIn(req: Request, res: Response, next: NextFunction) {
     OK({
       res,

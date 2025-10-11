@@ -1,7 +1,7 @@
 import { ISessionUser } from '~/interfaces/auth.interface';
 import { pushLog2Discord } from '~/loggers/discord.log';
 
-const API_URL = process.env.API_URL || 'http://localhost:3000';
+const API_URL = process.env.API_URL || 'http://localhost:8080';
 
 const headers = {
   'x-api-key': process.env.API_APIKEY || '',

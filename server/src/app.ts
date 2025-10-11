@@ -10,10 +10,7 @@ import cors from 'cors';
 import '@utils/interface';
 import { logger } from '@loggers/logger.log';
 import { errorHandler, notFoundHandler } from '@middlewares/error.middleware';
-import { initializeKPICronJobs } from './api/cron/kpi-instance.cron';
-
 require('dotenv').config();
-initializeKPICronJobs();
 const app = express();
 
 app.use(
@@ -33,17 +30,22 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || process.env.ALLOWED_ORIGINS?.split(',').includes(origin)) {
+      // Allow all origins in development
+      if (process.env.NODE_ENV === 'development') {
         callback(null, true);
-      } else callback(new Error('Not allowed by CORS'));
+      } else if (!origin || process.env.ALLOWED_ORIGINS?.split(',').includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
     },
-    // origin: process.env.ALLOWED_ORIGINS?.split(','),
     credentials: true,
     allowedHeaders: [
       'Content-Type',
       'Authorization',
       'x-client-id',
       'x-refresh-token',
+      'x-api-key',
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   })
