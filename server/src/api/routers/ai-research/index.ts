@@ -4,12 +4,12 @@ import { AIResearchController } from '../../controllers/ai-research.controller';
 const aiResearchRouter = express.Router();
 
 // Main AI research endpoint
-aiResearchRouter.post('/:tokenId', AIResearchController.researchToken);
+aiResearchRouter.post('/:tokenId', (req, res) => AIResearchController.researchToken(req, res));
 
 // Get research history
-aiResearchRouter.get('/:tokenId/history', AIResearchController.getResearchHistory);
+aiResearchRouter.get('/:tokenId/history', (req, res) => AIResearchController.getResearchHistory(req, res));
 
 // Get research insights
-aiResearchRouter.get('/:tokenId/insights', AIResearchController.getResearchInsights);
+aiResearchRouter.get('/:tokenId/insights', (req, res) => AIResearchController.getResearchInsights(req, res));
 
 export default aiResearchRouter; 
