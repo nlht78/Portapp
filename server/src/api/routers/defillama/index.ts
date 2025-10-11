@@ -4,16 +4,77 @@ import { DeFiLlamaController } from '../../controllers/defillama.controller';
 const router = Router();
 
 // Protocol routes
-router.get('/protocol/:protocolId', (req, res) => DeFiLlamaController.getProtocol(req, res));
-router.get('/protocols/search', (req, res) => DeFiLlamaController.searchProtocols(req, res));
-router.get('/protocol/:protocolId/treasury', (req, res) => DeFiLlamaController.getTreasury(req, res));
-router.get('/protocol/:protocolId/tvl-history', (req, res) => DeFiLlamaController.getProtocolTvlHistory(req, res));
-router.get('/protocol/:protocolId/funding', (req, res) => DeFiLlamaController.getFundingRounds(req, res));
-router.get('/protocol/:protocolId/investors', (req, res) => DeFiLlamaController.getInvestors(req, res));
-router.get('/protocol/:protocolId/comprehensive', (req, res) => DeFiLlamaController.getComprehensiveData(req, res));
+router.get('/protocol/:protocolId', async (req, res) => {
+  try {
+    await DeFiLlamaController.getProtocol(req, res);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/protocols/search', async (req, res) => {
+  try {
+    await DeFiLlamaController.searchProtocols(req, res);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/protocol/:protocolId/treasury', async (req, res) => {
+  try {
+    await DeFiLlamaController.getTreasury(req, res);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/protocol/:protocolId/tvl-history', async (req, res) => {
+  try {
+    await DeFiLlamaController.getProtocolTvlHistory(req, res);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/protocol/:protocolId/funding', async (req, res) => {
+  try {
+    await DeFiLlamaController.getFundingRounds(req, res);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/protocol/:protocolId/investors', async (req, res) => {
+  try {
+    await DeFiLlamaController.getInvestors(req, res);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/protocol/:protocolId/comprehensive', async (req, res) => {
+  try {
+    await DeFiLlamaController.getComprehensiveData(req, res);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // Token routes
-router.get('/token/:address', (req, res) => DeFiLlamaController.getTokenData(req, res));
-router.get('/token/:address/protocols', (req, res) => DeFiLlamaController.getProtocolByTokenAddress(req, res));
+router.get('/token/:address', async (req, res) => {
+  try {
+    await DeFiLlamaController.getTokenData(req, res);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/token/:address/protocols', async (req, res) => {
+  try {
+    await DeFiLlamaController.getProtocolByTokenAddress(req, res);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 module.exports = router;
