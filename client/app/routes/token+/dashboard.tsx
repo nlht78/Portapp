@@ -5,7 +5,7 @@ import AddTokenModal from '~/components/AddTokenModal';
 import { isAuthenticated } from '~/services/auth.server';
 import { getUserTokensWithStats, createUserToken, deleteUserToken } from '~/services/userToken.server';
 import { getTrendingTokens } from '~/services/coingecko.server';
-import { getMultiPricesClient } from '~/services/multiPricing.client';
+import { getMultiPrices } from '~/services/multiPricing.server';
 import { IUserTokenCreateData } from '~/interfaces/userToken.interface';
 import { usePortfolio } from '~/contexts/PortfolioContext';
 
@@ -217,20 +217,33 @@ export default function Dashboard() {
     setLoadingPrices(true);
     try {
       const tokenIds = userTokens.map(token => token.tokenId);
-      const data = await getMultiPricesClient(tokenIds);
       
-      const prices: Record<string, number> = {};
+      // Gọi API server-side thông qua fetcher
+      const response = await fetch('/api/fetch-market-prices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tokenIds }),
+      });
       
-      if (data.prices) {
-        Object.entries(data.prices).forEach(([tokenId, priceData]: [string, any]) => {
-          prices[tokenId] = priceData.price || 0;
-        });
+      if (response.ok) {
+        const data = await response.json();
+        const prices: Record<string, number> = {};
+        
+        if (data.prices) {
+          Object.entries(data.prices).forEach(([tokenId, priceData]: [string, any]) => {
+            prices[tokenId] = priceData.price || 0;
+          });
+        }
+        
+        setMarketPrices(prices);
+        updateMarketPrices(prices, data.source || 'unknown');
+        const duration = Date.now() - startTime;
+        console.log(`✅ [${new Date().toLocaleTimeString()}] Dashboard: Prices loaded from ${data.source || 'unknown'} source in ${duration}ms`);
+      } else {
+        console.warn('Failed to fetch market prices:', response.status);
       }
-      
-      setMarketPrices(prices);
-      updateMarketPrices(prices, data.source || 'unknown');
-      const duration = Date.now() - startTime;
-      console.log(`✅ [${new Date().toLocaleTimeString()}] Dashboard: Prices loaded from ${data.source || 'unknown'} source in ${duration}ms`);
     } catch (error) {
       console.error('Error fetching market prices:', error);
     } finally {

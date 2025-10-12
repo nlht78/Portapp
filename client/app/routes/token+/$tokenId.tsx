@@ -10,7 +10,7 @@ import FundingSection from '~/components/FundingSection';
 import TokenDetailSkeleton, { TokenLoadingState } from '~/components/TokenDetailSkeleton';
 import { TokenErrorBoundary } from '~/components/ErrorBoundary';
 import { getTokenDetails } from '~/services/coingecko.server';
-import { getMultiPricesClient } from '~/services/multiPricing.client';
+import { getMultiPrices } from '~/services/multiPricing.server';
 
 // Helper function to fetch with timeout
 const fetchWithTimeout = async (url: string, options: RequestInit, timeout: number = 15000) => {
@@ -145,8 +145,16 @@ export default function TokenDetail() {
     const fetchRealTimePrices = async () => {
       try {
         const [tokenPriceData, btcPriceData] = await Promise.all([
-          getMultiPricesClient([tokenData.id || 'bitcoin']),
-          getMultiPricesClient(['bitcoin'])
+          fetch('/api/fetch-market-prices', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tokenIds: [tokenData.id || 'bitcoin'] }),
+          }).then(res => res.json()),
+          fetch('/api/fetch-market-prices', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tokenIds: ['bitcoin'] }),
+          }).then(res => res.json())
         ]);
 
         const price = tokenPriceData.prices?.[tokenData.id || 'bitcoin'];
