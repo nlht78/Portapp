@@ -14,11 +14,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     const data = await getMultiPrices(tokenIds);
+    console.log('💰 Multi-pricing result:', { data, pricesKeys: Object.keys(data?.prices || {}) });
     
     return json({
       success: true,
-      prices: data.prices,
-      source: data.source,
+      prices: data?.prices || {},
+      source: data?.source || 'unknown',
     });
   } catch (error) {
     console.error('Error fetching market prices:', error);

@@ -25,7 +25,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Fetch trending tokens from CoinGecko API
     let trendingTokens = [];
     try {
-      trendingTokens = await getTrendingTokens();
+      const result = await getTrendingTokens();
+      console.log('📈 Trending result:', { result, tokensLength: result?.tokens?.length });
+      trendingTokens = result?.tokens || [];
     } catch (error) {
       console.error('Error fetching trending tokens:', error);
     }

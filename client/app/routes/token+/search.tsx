@@ -12,8 +12,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   try {
-    const tokens = await searchTokens(query);
-    return json({ tokens: tokens || [], query, error: null });
+    const result = await searchTokens(query);
+    console.log('🔍 Search result:', { query, result, tokensLength: result?.tokens?.length });
+    const tokens = result?.tokens || [];
+    return json({ tokens, query, error: null });
   } catch (error) {
     console.error('Error searching tokens:', error);
     return json({ tokens: [], query, error: 'Failed to search tokens' });
