@@ -75,12 +75,12 @@ export default function TokenSelectDropdown({
   const loadTrendingTokens = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8080/api/v1/multi-pricing/trending');
+      const response = await fetch('/api/trending-tokens');
       if (response.ok) {
         const data = await response.json();
-        const loadedTokens = data.metadata.tokens || [];
+        const loadedTokens = data.tokens || [];
         setTokens(loadedTokens);
-        console.log(`✅ Trending tokens loaded from ${data.metadata?.source || 'unknown'} source`);
+        console.log(`✅ Trending tokens loaded from ${data.source || 'unknown'} source`);
         
         // Fetch prices for loaded tokens
         if (loadedTokens.length > 0) {
@@ -100,25 +100,28 @@ export default function TokenSelectDropdown({
     
     setLoadingPrices(true);
     try {
-      const tokenIds = tokensToPrice.map(token => token.id).join(',');
-      const response = await fetch(`http://localhost:8080/api/v1/multi-pricing/prices?ids=${tokenIds}`, {
+      const tokenIds = tokensToPrice.map(token => token.id);
+      
+      const response = await fetch('/api/fetch-market-prices', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ tokenIds }),
       });
 
       if (response.ok) {
         const data = await response.json();
         const prices: Record<string, number> = {};
         
-        if (data.metadata && data.metadata.prices) {
-          Object.entries(data.metadata.prices).forEach(([tokenId, priceData]: [string, any]) => {
+        if (data.prices) {
+          Object.entries(data.prices).forEach(([tokenId, priceData]: [string, any]) => {
             prices[tokenId] = priceData.price || 0;
           });
         }
         
         setTokenPrices(prices);
-        console.log(`✅ Token prices loaded from ${data.metadata?.source || 'unknown'} source`);
+        console.log(`✅ Token prices loaded from ${data.source || 'unknown'} source`);
       } else {
         console.warn('Failed to fetch token prices:', response.status);
       }
@@ -134,12 +137,12 @@ export default function TokenSelectDropdown({
     
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:8080/api/v1/multi-pricing/search?query=${encodeURIComponent(query)}`);
+      const response = await fetch(`/api/search-tokens?query=${encodeURIComponent(query)}`);
       if (response.ok) {
         const data = await response.json();
-        const searchResults = data.metadata.tokens || [];
+        const searchResults = data.tokens || [];
         setTokens(searchResults);
-        console.log(`✅ Token search completed from ${data.metadata?.source || 'unknown'} source`);
+        console.log(`✅ Token search completed from ${data.source || 'unknown'} source`);
         
         // Fetch prices for search results
         if (searchResults.length > 0) {
