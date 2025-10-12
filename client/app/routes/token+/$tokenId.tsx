@@ -9,6 +9,8 @@ import InvestorSection from '~/components/InvestorSection';
 import FundingSection from '~/components/FundingSection';
 import TokenDetailSkeleton, { TokenLoadingState } from '~/components/TokenDetailSkeleton';
 import { TokenErrorBoundary } from '~/components/ErrorBoundary';
+import { getTokenDetails } from '~/services/coingecko.server';
+import { getMultiPricesClient } from '~/services/multiPricing.client';
 
 // Helper function to fetch with timeout
 const fetchWithTimeout = async (url: string, options: RequestInit, timeout: number = 15000) => {
@@ -60,18 +62,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
         throw new Error(`API responded with status: ${response.status}`);
       }
 
-      const data = await response.json();
-      
-      // Add source information to metadata
-      const tokenData = {
-        ...data.metadata,
-        source: data.message?.includes('coinpaprika') ? 'CoinPaprika' : 
-                data.message?.includes('coingecko') ? 'CoinGecko (Fallback)' :
-                data.message?.includes('search') ? 'CoinPaprika (Search)' : 'Unknown',
-        lastUpdate: new Date().toISOString(),
-        loadTime: `${attempt > 1 ? 'Retry ' + (attempt - 1) + ' - ' : ''}${Date.now()}`,
-        attemptCount: attempt
-      };
+      const tokenData = await getTokenDetails(tokenId);
       
       console.log(`Successfully fetched token data for ${tokenId} on attempt ${attempt}`);
       return json({ tokenData });
@@ -153,25 +144,19 @@ export default function TokenDetail() {
   useEffect(() => {
     const fetchRealTimePrices = async () => {
       try {
-        const [tokenPriceRes, btcPriceRes] = await Promise.all([
-          fetch(`http://localhost:8080/api/v1/multi-pricing/prices?ids=${tokenData.id || 'bitcoin'}`),
-          fetch(`http://localhost:8080/api/v1/multi-pricing/prices?ids=bitcoin`)
+        const [tokenPriceData, btcPriceData] = await Promise.all([
+          getMultiPricesClient([tokenData.id || 'bitcoin']),
+          getMultiPricesClient(['bitcoin'])
         ]);
 
-        if (tokenPriceRes.ok) {
-          const tokenPriceData = await tokenPriceRes.json();
-          const price = tokenPriceData.prices?.[tokenData.id || 'bitcoin'];
-          if (price) {
-            setRealTimePrice(price);
-          }
+        const price = tokenPriceData.prices?.[tokenData.id || 'bitcoin'];
+        if (price) {
+          setRealTimePrice(price.price);
         }
 
-        if (btcPriceRes.ok) {
-          const btcPriceData = await btcPriceRes.json();
-          const price = btcPriceData.prices?.['bitcoin'];
-          if (price) {
-            setBtcPrice(price);
-          }
+        const btcPrice = btcPriceData.prices?.bitcoin;
+        if (btcPrice) {
+          setBtcPrice(btcPrice.price);
         }
       } catch (error) {
         console.warn('Failed to fetch real-time prices:', error);

@@ -3,7 +3,9 @@ import { useLoaderData, useFetcher } from '@remix-run/react';
 import { useState, useEffect } from 'react';
 import AddTokenModal from '~/components/AddTokenModal';
 import { isAuthenticated } from '~/services/auth.server';
-import { getUserTokensWithStats, createUserToken } from '~/services/userToken.server';
+import { getUserTokensWithStats, createUserToken, deleteUserToken } from '~/services/userToken.server';
+import { getTrendingTokens } from '~/services/coingecko.server';
+import { getMultiPricesClient } from '~/services/multiPricing.client';
 import { IUserTokenCreateData } from '~/interfaces/userToken.interface';
 import { usePortfolio } from '~/contexts/PortfolioContext';
 
@@ -11,39 +13,29 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     // Get user from authentication
     const auth = await isAuthenticated(request);
+    console.log('🔐 Auth check:', { 
+      isAuthenticated: !!auth, 
+      userId: auth?.user?.id,
+      hasAccessToken: !!auth?.tokens?.accessToken 
+    });
     if (!auth) {
       return redirect('/token/login');
     }
 
     // Fetch trending tokens from CoinGecko API
-    const response = await fetch(`http://localhost:8080/api/v1/coingecko/trending`, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
     let trendingTokens = [];
-    if (response.ok) {
-      const data = await response.json();
-      trendingTokens = data.metadata.tokens || [];
+    try {
+      trendingTokens = await getTrendingTokens();
+    } catch (error) {
+      console.error('Error fetching trending tokens:', error);
     }
 
     // Fetch user tokens
-    let userTokens = [];
+    let userTokens: any[] = [];
     try {
-      const response = await fetch('http://localhost:8080/api/v1/user-tokens/with-stats', {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${auth.tokens.accessToken}`,
-          'x-client-id': auth.user.id,
-          'x-api-key': process.env.API_APIKEY || '',
-        },
-      });
-
-      if (response.ok) {
-        const userTokensData = await response.json();
-        userTokens = userTokensData.metadata.tokens || [];
-      }
+      const userTokensData = await getUserTokensWithStats(auth);
+      console.log('📦 getUserTokensWithStats response:', userTokensData);
+      userTokens = userTokensData?.tokens || [];
     } catch (error) {
       console.error('Error fetching user tokens:', error);
     }
@@ -99,22 +91,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       };
 
       // Gọi API để thêm token
-      const response = await fetch('http://localhost:8080/api/v1/user-tokens', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${auth.tokens.accessToken}`,
-          'x-client-id': auth.user.id,
-          'x-api-key': process.env.API_APIKEY || '',
-        },
-        body: JSON.stringify(tokenData),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
+      const result = await createUserToken(tokenData, auth);
 
       return {
         success: true,
@@ -127,21 +104,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const tokenId = formData.get('tokenId') as string;
 
       // Gọi API để xóa token
-      const response = await fetch(`http://localhost:8080/api/v1/user-tokens/${tokenId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${auth.tokens.accessToken}`,
-          'x-client-id': auth.user.id,
-          'x-api-key': process.env.API_APIKEY || '',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
+      const result = await deleteUserToken(tokenId, auth);
 
       return {
         success: true,
@@ -253,31 +216,21 @@ export default function Dashboard() {
     
     setLoadingPrices(true);
     try {
-      const tokenIds = userTokens.map(token => token.tokenId).join(',');
+      const tokenIds = userTokens.map(token => token.tokenId);
+      const data = await getMultiPricesClient(tokenIds);
       
-      const response = await fetch(`http://localhost:8080/api/v1/multi-pricing/prices?ids=${tokenIds}`, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const prices: Record<string, number> = {};
-        
-        if (data.metadata && data.metadata.prices) {
-          Object.entries(data.metadata.prices).forEach(([tokenId, priceData]: [string, any]) => {
-            prices[tokenId] = priceData.price || 0;
-          });
-        }
-        
-        setMarketPrices(prices);
-        updateMarketPrices(prices, data.metadata?.source || 'unknown');
-        const duration = Date.now() - startTime;
-        console.log(`✅ [${new Date().toLocaleTimeString()}] Dashboard: Prices loaded from ${data.metadata?.source || 'unknown'} source in ${duration}ms`);
-      } else {
-        console.warn('Failed to fetch market prices:', response.status);
+      const prices: Record<string, number> = {};
+      
+      if (data.prices) {
+        Object.entries(data.prices).forEach(([tokenId, priceData]: [string, any]) => {
+          prices[tokenId] = priceData.price || 0;
+        });
       }
+      
+      setMarketPrices(prices);
+      updateMarketPrices(prices, data.source || 'unknown');
+      const duration = Date.now() - startTime;
+      console.log(`✅ [${new Date().toLocaleTimeString()}] Dashboard: Prices loaded from ${data.source || 'unknown'} source in ${duration}ms`);
     } catch (error) {
       console.error('Error fetching market prices:', error);
     } finally {
@@ -335,8 +288,10 @@ export default function Dashboard() {
   const getTotalProfit = () => {
     return userTokens.reduce((total, token) => {
       const currentPrice = getDisplayPrice(token);
-      const totalValue = token.quantity * currentPrice;
-      const totalPurchaseValue = token.quantity * token.purchasePrice;
+      const quantity = token.quantity || 0;
+      const purchasePrice = token.purchasePrice || 0;
+      const totalValue = quantity * currentPrice;
+      const totalPurchaseValue = quantity * purchasePrice;
       return total + (totalValue - totalPurchaseValue);
     }, 0);
   };
@@ -344,7 +299,9 @@ export default function Dashboard() {
   // Tính phần trăm lợi nhuận của portfolio
   const getTotalProfitPercentage = () => {
     const totalPurchaseValue = userTokens.reduce((total, token) => {
-      return total + (token.quantity * token.purchasePrice);
+      const quantity = token.quantity || 0;
+      const purchasePrice = token.purchasePrice || 0;
+      return total + (quantity * purchasePrice);
     }, 0);
     
     if (totalPurchaseValue === 0) return 0;
@@ -355,18 +312,23 @@ export default function Dashboard() {
 
   const getTotalValue = (token: any) => {
     const currentPrice = getDisplayPrice(token);
-    return token.quantity * currentPrice;
+    const quantity = token.quantity || 0;
+    return quantity * currentPrice;
   };
 
   const getProfitLoss = (token: any) => {
     const currentPrice = getDisplayPrice(token);
     const totalValue = getTotalValue(token);
-    const purchaseValue = token.quantity * token.purchasePrice;
+    const quantity = token.quantity || 0;
+    const purchasePrice = token.purchasePrice || 0;
+    const purchaseValue = quantity * purchasePrice;
     return totalValue - purchaseValue;
   };
 
   const getProfitLossPercentage = (token: any) => {
-    const purchaseValue = token.quantity * token.purchasePrice;
+    const quantity = token.quantity || 0;
+    const purchasePrice = token.purchasePrice || 0;
+    const purchaseValue = quantity * purchasePrice;
     const profitLoss = getProfitLoss(token);
     return purchaseValue > 0 ? (profitLoss / purchaseValue) * 100 : 0;
   };
@@ -375,7 +337,8 @@ export default function Dashboard() {
   const getRealPortfolioValue = () => {
     return userTokens.reduce((total, token) => {
       const currentPrice = getDisplayPrice(token);
-      return total + (token.quantity * currentPrice);
+      const quantity = token.quantity || 0;
+      return total + (quantity * currentPrice);
     }, 0);
   };
 
@@ -444,10 +407,10 @@ export default function Dashboard() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">{token.quantity.toLocaleString()}</span>
+                      <span className="text-sm text-gray-900">{(token.quantity || 0).toLocaleString()}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">${token.purchasePrice.toLocaleString()}</span>
+                      <span className="text-sm text-gray-900">${(token.purchasePrice || 0).toLocaleString()}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-2">
@@ -663,10 +626,10 @@ export default function Dashboard() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">{token.quantity.toLocaleString()}</span>
+                      <span className="text-sm text-gray-900">{(token.quantity || 0).toLocaleString()}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">${token.purchasePrice.toLocaleString()}</span>
+                      <span className="text-sm text-gray-900">${(token.purchasePrice || 0).toLocaleString()}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-2">

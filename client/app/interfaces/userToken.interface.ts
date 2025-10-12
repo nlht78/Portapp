@@ -51,15 +51,6 @@ export interface IUserTokenListResponse {
   };
 }
 
-export interface IUserTokenStatisticsResponse {
-  success: boolean;
-  message: string;
-  metadata: {
-    totalTokens: number;
-    totalValue: number;
-    totalProfitLoss: number;
-    totalProfitLossPercentage: number;
-    topPerformingTokens: IUserToken[];
-    worstPerformingTokens: IUserToken[];
-  };
+export interface IUserTokenWithStatsResponse {
+  tokens: IUserToken[];
 }

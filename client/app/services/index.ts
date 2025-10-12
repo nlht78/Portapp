@@ -14,6 +14,14 @@ const fetcher = async (
     request?: ISessionUser;
   },
 ) => {
+  console.log('🚀 Fetcher called:', {
+    path,
+    method: options?.method || 'GET',
+    hasAuth: !!options?.request?.tokens?.accessToken,
+    userId: options?.request?.user?.id,
+    API_URL,
+    API_KEY_SET: !!process.env.API_APIKEY,
+  });
   const response = await fetch(`${API_URL}/api/v1${path}`, {
     method: 'GET',
     ...options,
@@ -23,7 +31,7 @@ const fetcher = async (
         ? {}
         : { 'Content-Type': 'application/json' }),
       'x-client-id': options?.request?.user?.id || '',
-      Authorization: 'Bearer ' + options?.request?.tokens?.accessToken || '',
+      Authorization: options?.request?.tokens?.accessToken ? `Bearer ${options.request.tokens.accessToken}` : '',
       // 'x-refresh-token': options?.request?.tokens?.refreshToken || '',
       ...options?.headers,
     },
@@ -97,3 +105,8 @@ const fetcher = async (
 };
 
 export { fetcher };
+
+
+
+
+

@@ -1,6 +1,8 @@
 import { json, type LoaderFunctionArgs } from '@remix-run/node';
 import { useLoaderData, Link } from '@remix-run/react';
 import { useState, useEffect } from 'react';
+import { getTokenDetails } from '~/services/coingecko.server';
+import { getLargeTransactions } from '~/services/transactionHistory.server';
 
 interface Transaction {
   hash: string;
@@ -43,17 +45,7 @@ export const loader = async ({ params }: LoaderFunctionArgs) => {
 
   try {
     // Get token data first
-    const tokenResponse = await fetch(`http://localhost:8080/api/v1/coingecko/tokens/${tokenId}`, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!tokenResponse.ok) {
-      throw new Response('Failed to fetch token data', { status: tokenResponse.status });
-    }
-
-    const tokenData = await tokenResponse.json();
+    const tokenData = await getTokenDetails(tokenId);
 
     // Get transaction history
     const tokenAddress = tokenData.metadata.platforms?.ethereum || tokenData.metadata.platforms?.binancecoin;

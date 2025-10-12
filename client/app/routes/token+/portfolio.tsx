@@ -2,6 +2,8 @@ import { json, LoaderFunctionArgs, ActionFunctionArgs } from '@remix-run/node';
 import { useLoaderData, useFetcher } from '@remix-run/react';
 import { useState, useEffect } from 'react';
 import { isAuthenticated } from '~/services/auth.server';
+import { getUserTokensWithStats, deleteUserToken } from '~/services/userToken.server';
+import { getMultiPricesClient } from '~/services/multiPricing.client';
 import { usePortfolio } from '~/contexts/PortfolioContext';
 import PortfolioChart from '~/components/PortfolioChart';
 
@@ -15,19 +17,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Fetch user tokens from API
     let userTokens: any[] = [];
     try {
-      const response = await fetch('http://localhost:8080/api/v1/user-tokens/with-stats', {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${auth.tokens.accessToken}`,
-          'x-client-id': auth.user.id,
-          'x-api-key': process.env.API_APIKEY || '',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        userTokens = data.metadata?.tokens || [];
-      }
+      const userTokensData = await getUserTokensWithStats(auth);
+      console.log('📦 getUserTokensWithStats response:', userTokensData);
+      userTokens = userTokensData?.tokens || [];
     } catch (error) {
       console.error('Error fetching user tokens:', error);
     }
@@ -86,21 +78,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     
     if (action === 'delete-token') {
       const tokenId = formData.get('tokenId') as string;
-      const response = await fetch(`http://localhost:8080/api/v1/user-tokens/${tokenId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${auth.tokens.accessToken}`,
-          'x-client-id': auth.user.id,
-          'x-api-key': process.env.API_APIKEY || '',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
+      const result = await deleteUserToken(tokenId, auth);
       return { success: true, message: 'Token deleted successfully', data: result };
     }
     
@@ -137,31 +115,21 @@ export default function Portfolio() {
     
     setLoadingPrices(true);
     try {
-      const tokenIds = userTokens.map(token => token.tokenId).join(',');
+      const tokenIds = userTokens.map(token => token.tokenId);
+      const data = await getMultiPricesClient(tokenIds);
       
-      const response = await fetch(`http://localhost:8080/api/v1/multi-pricing/prices?ids=${tokenIds}`, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const prices: Record<string, number> = {};
-        
-        if (data.metadata && data.metadata.prices) {
-          Object.entries(data.metadata.prices).forEach(([tokenId, priceData]: [string, any]) => {
-            prices[tokenId] = priceData.price || 0;
-          });
-        }
-        
-        setMarketPrices(prices);
-        updateMarketPrices(prices, data.metadata?.source || 'unknown');
-        const duration = Date.now() - startTime;
-        console.log(`✅ [${new Date().toLocaleTimeString()}] Prices loaded from ${data.metadata?.source || 'unknown'} source in ${duration}ms`);
-      } else {
-        console.warn('Failed to fetch market prices:', response.status);
+      const prices: Record<string, number> = {};
+      
+      if (data.prices) {
+        Object.entries(data.prices).forEach(([tokenId, priceData]: [string, any]) => {
+          prices[tokenId] = priceData.price || 0;
+        });
       }
+      
+      setMarketPrices(prices);
+      updateMarketPrices(prices, data.source || 'unknown');
+      const duration = Date.now() - startTime;
+      console.log(`✅ [${new Date().toLocaleTimeString()}] Prices loaded from ${data.source || 'unknown'} source in ${duration}ms`);
     } catch (error) {
       console.error('Error fetching market prices:', error);
     } finally {
@@ -217,18 +185,23 @@ export default function Portfolio() {
 
   const getTotalValue = (token: any) => {
     const currentPrice = getDisplayPrice(token);
-    return token.quantity * currentPrice;
+    const quantity = token.quantity || 0;
+    return quantity * currentPrice;
   };
 
   const getProfitLoss = (token: any) => {
     const currentPrice = getDisplayPrice(token);
     const totalValue = getTotalValue(token);
-    const purchaseValue = token.quantity * token.purchasePrice;
+    const quantity = token.quantity || 0;
+    const purchasePrice = token.purchasePrice || 0;
+    const purchaseValue = quantity * purchasePrice;
     return totalValue - purchaseValue;
   };
 
   const getProfitLossPercentage = (token: any) => {
-    const purchaseValue = token.quantity * token.purchasePrice;
+    const quantity = token.quantity || 0;
+    const purchasePrice = token.purchasePrice || 0;
+    const purchaseValue = quantity * purchasePrice;
     const profitLoss = getProfitLoss(token);
     return purchaseValue > 0 ? (profitLoss / purchaseValue) * 100 : 0;
   };
@@ -237,7 +210,8 @@ export default function Portfolio() {
   const getRealPortfolioValue = () => {
     return userTokens.reduce((total, token) => {
       const currentPrice = getDisplayPrice(token);
-      return total + (token.quantity * currentPrice);
+      const quantity = token.quantity || 0;
+      return total + (quantity * currentPrice);
     }, 0);
   };
 
@@ -393,10 +367,10 @@ export default function Portfolio() {
                       </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-900">{token.quantity.toLocaleString()}</span>
+                    <span className="text-sm text-gray-900">{(token.quantity || 0).toLocaleString()}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">${token.purchasePrice.toLocaleString()}</span>
+                      <span className="text-sm text-gray-900">${(token.purchasePrice || 0).toLocaleString()}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-2">

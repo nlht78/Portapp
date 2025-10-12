@@ -5,6 +5,7 @@ import {
   IUserTokenListResponse,
   IUserTokenCreateData,
   IUserTokenUpdateData,
+  IUserTokenWithStatsResponse,
 } from '~/interfaces/userToken.interface';
 
 // Lấy danh sách user tokens của user
@@ -33,7 +34,7 @@ const getUserTokensWithStats = async (request: ISessionUser) => {
     method: 'GET',
     request,
   });
-  return response as IUserTokenResponse;
+  return response as IUserTokenWithStatsResponse;
 };
 
 // Tạo user token mới

@@ -36,7 +36,9 @@ app.use(
       } else if (!origin || process.env.ALLOWED_ORIGINS?.split(',').includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error('Not allowed by CORS'));
+        // Temporarily allow all origins for debugging
+        console.log('CORS: Allowing origin:', origin);
+        callback(null, true);
       }
     },
     credentials: true,

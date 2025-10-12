@@ -1,6 +1,7 @@
 import { json, LoaderFunctionArgs } from '@remix-run/node';
 import { useLoaderData, useSearchParams, Link } from '@remix-run/react';
 import { useState, useEffect } from 'react';
+import { searchTokens } from '~/services/coingecko.server';
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
@@ -11,18 +12,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   try {
-    const response = await fetch(`http://localhost:8080/api/v1/coingecko/search?query=${encodeURIComponent(query)}`, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch search results');
-    }
-
-    const data = await response.json();
-    return json({ tokens: data.metadata.tokens || [], query, error: null });
+    const tokens = await searchTokens(query);
+    return json({ tokens: tokens || [], query, error: null });
   } catch (error) {
     console.error('Error searching tokens:', error);
     return json({ tokens: [], query, error: 'Failed to search tokens' });
