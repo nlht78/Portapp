@@ -12,24 +12,6 @@ import { TokenErrorBoundary } from '~/components/ErrorBoundary';
 import { getTokenDetails } from '~/services/coingecko.server';
 import { getMultiPrices } from '~/services/multiPricing.server';
 
-// Helper function to fetch with timeout
-const fetchWithTimeout = async (url: string, options: RequestInit, timeout: number = 15000) => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    return response;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
-  }
-};
-
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const tokenId = params.tokenId;
 
@@ -44,24 +26,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     try {
       console.log(`Attempt ${attempt} to fetch token data for ${tokenId}`);
       
-      // Fetch token data from multi-source API with timeout
-      const response = await fetchWithTimeout(
-        `http://localhost:8080/api/v1/coingecko/tokens/${tokenId}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-        attempt === 1 ? 10000 : 20000 // First attempt: 10s, retry: 20s
-      );
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Response('Token not found', { status: 404 });
-        }
-        throw new Error(`API responded with status: ${response.status}`);
-      }
-
+      // Fetch token data from multi-source API
       const tokenData = await getTokenDetails(tokenId);
       
       console.log(`Successfully fetched token data for ${tokenId} on attempt ${attempt}`);

@@ -62,23 +62,12 @@ export const loader = async ({ params }: LoaderFunctionArgs) => {
       });
     }
 
-    const url = new URL(`http://localhost:8080/api/v1/transaction-history/${tokenAddress}/large-transactions`);
-    url.searchParams.set('blockchain', blockchain);
-    url.searchParams.set('limit', '20');
-    url.searchParams.set('page', '1');
-    url.searchParams.set('minValueUsd', '100000');
-
-    const txResponse = await fetch(url.toString(), {
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    // Get transaction history
+    const txData = await getLargeTransactions(tokenAddress, blockchain, {
+      limit: 20,
+      page: 1,
+      minValueUsd: 100000
     });
-
-    if (!txResponse.ok) {
-      throw new Response('Failed to fetch transaction data', { status: txResponse.status });
-    }
-
-    const txData = await txResponse.json();
 
     return json({
       tokenId,
@@ -106,16 +95,25 @@ export default function TokenHistory() {
     setLoading(true);
     try {
       const tokenAddress = tokenData.platforms?.ethereum || tokenData.platforms?.binancecoin;
-      const url = new URL(`http://localhost:8080/api/v1/transaction-history/${tokenAddress}/large-transactions`);
-      url.searchParams.set('blockchain', blockchain);
-      url.searchParams.set('limit', '20');
-      url.searchParams.set('page', page.toString());
-      url.searchParams.set('minValueUsd', '100000');
-
-      const response = await fetch(url.toString());
+      
+      // Gọi API server-side thông qua fetcher
+      const response = await fetch('/api/fetch-transaction-history', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tokenAddress,
+          blockchain,
+          limit: 20,
+          page,
+          minValueUsd: 100000
+        }),
+      });
+      
       if (response.ok) {
         const data = await response.json();
-        setCurrentTransactions(data.metadata.transactions || []);
+        setCurrentTransactions(data.transactions || []);
         setCurrentPage(page);
       }
     } catch (error) {
