@@ -38,7 +38,8 @@ export default function InvestorSection({ tokenId, tokenData }: InvestorSectionP
           protocolId = tokenData.name.toLowerCase().replace(/\s+/g, '-');
         }
 
-        const response = await fetch(`http://localhost:8080/api/v1/defillama/protocol/${protocolId}/investors`);
+        const API_URL = process.env.API_URL || 'http://localhost:8080';
+        const response = await fetch(`${API_URL}/api/v1/defillama/protocol/${protocolId}/investors`);
         
         if (!response.ok) {
           throw new Error(`Failed to fetch investors: ${response.status}`);

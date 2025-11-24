@@ -83,7 +83,8 @@ export default function ProjectOverview({ tokenId, tokenData }: ProjectOverviewP
   const fetchProjectData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:8080/api/v1/project/${tokenId}`);
+      const API_URL = process.env.API_URL || 'http://localhost:8080';
+      const response = await fetch(`${API_URL}/api/v1/project/${tokenId}`);
       if (response.ok) {
         const data = await response.json();
         setProjectData(data.metadata);

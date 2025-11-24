@@ -55,7 +55,8 @@ export default function PriceChart({ tokenId, tokenName, currentPrice }: PriceCh
     setIsMockData(false);
     
     try {
-      const url = `http://localhost:8080/api/v1/coingecko/tokens/${tokenId}/chart?days=${days}`;
+      const API_URL = process.env.API_URL || 'http://localhost:8080';
+      const url = `${API_URL}/api/v1/coingecko/tokens/${tokenId}/chart?days=${days}`;
       
       const response = await fetch(url, {
         headers: {

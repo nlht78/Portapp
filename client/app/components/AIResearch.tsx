@@ -64,7 +64,8 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
     setHasResearched(true);
 
     try {
-      const response = await fetch(`http://localhost:8080/api/v1/ai-research/${tokenId}`, {
+      const API_URL = process.env.API_URL || 'http://localhost:8080';
+      const response = await fetch(`${API_URL}/api/v1/ai-research/${tokenId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -38,7 +38,8 @@ export default function TokenHolders({ tokenAddress, tokenSymbol = 'TOKEN', deci
     setError(null);
     
     try {
-      const url = new URL(`http://localhost:8080/api/v1/token-holders/${tokenAddress}/holders`);
+      const API_URL = process.env.API_URL || 'http://localhost:8080';
+      const url = new URL(`${API_URL}/api/v1/token-holders/${tokenAddress}/holders`);
       url.searchParams.set('limit', '30');
       url.searchParams.set('page', page.toString());
       if (blockchain) {
