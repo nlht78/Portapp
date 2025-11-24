@@ -56,11 +56,13 @@ export default function PriceChart({ tokenId, tokenName, currentPrice }: PriceCh
     
     try {
       const API_URL = process.env.API_URL || 'http://localhost:8080';
+      const API_KEY = process.env.API_APIKEY || '';
       const url = `${API_URL}/api/v1/coingecko/tokens/${tokenId}/chart?days=${days}`;
       
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
+          'x-api-key': API_KEY,
         },
       });
 

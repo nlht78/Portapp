@@ -65,10 +65,12 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
 
     try {
       const API_URL = process.env.API_URL || 'http://localhost:8080';
+      const API_KEY = process.env.API_APIKEY || '';
       const response = await fetch(`${API_URL}/api/v1/ai-research/${tokenId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-api-key': API_KEY,
         },
         body: JSON.stringify({
           query: 'roadmap, tokenomics, earning mechanisms, upcoming events, partnerships, development updates',

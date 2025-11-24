@@ -39,6 +39,7 @@ export default function TokenHolders({ tokenAddress, tokenSymbol = 'TOKEN', deci
     
     try {
       const API_URL = process.env.API_URL || 'http://localhost:8080';
+      const API_KEY = process.env.API_APIKEY || '';
       const url = new URL(`${API_URL}/api/v1/token-holders/${tokenAddress}/holders`);
       url.searchParams.set('limit', '30');
       url.searchParams.set('page', page.toString());
@@ -49,6 +50,7 @@ export default function TokenHolders({ tokenAddress, tokenSymbol = 'TOKEN', deci
        const response = await fetch(url.toString(), {
          headers: {
            'Content-Type': 'application/json',
+           'x-api-key': API_KEY,
          },
        });
 

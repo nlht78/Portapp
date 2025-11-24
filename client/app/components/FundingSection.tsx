@@ -36,7 +36,12 @@ export default function FundingSection({ tokenId, tokenData }: FundingSectionPro
         }
 
         const API_URL = process.env.API_URL || 'http://localhost:8080';
-        const response = await fetch(`${API_URL}/api/v1/defillama/protocol/${protocolId}/funding`);
+        const API_KEY = process.env.API_APIKEY || '';
+        const response = await fetch(`${API_URL}/api/v1/defillama/protocol/${protocolId}/funding`, {
+          headers: {
+            'x-api-key': API_KEY,
+          },
+        });
         
         if (!response.ok) {
           throw new Error(`Failed to fetch funding rounds: ${response.status}`);

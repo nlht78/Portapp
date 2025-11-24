@@ -39,7 +39,12 @@ export default function InvestorSection({ tokenId, tokenData }: InvestorSectionP
         }
 
         const API_URL = process.env.API_URL || 'http://localhost:8080';
-        const response = await fetch(`${API_URL}/api/v1/defillama/protocol/${protocolId}/investors`);
+        const API_KEY = process.env.API_APIKEY || '';
+        const response = await fetch(`${API_URL}/api/v1/defillama/protocol/${protocolId}/investors`, {
+          headers: {
+            'x-api-key': API_KEY,
+          },
+        });
         
         if (!response.ok) {
           throw new Error(`Failed to fetch investors: ${response.status}`);
