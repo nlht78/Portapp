@@ -10,7 +10,12 @@ declare module '@remix-run/node' {
 }
 
 export default defineConfig({
-  envDir: './env',
+  envDir: './',
+  define: {
+    'process.env.API_URL': JSON.stringify(process.env.API_URL || 'http://localhost:8080'),
+    'process.env.API_APIKEY': JSON.stringify(process.env.API_APIKEY || ''),
+    'process.env.IMAGE_HOSTNAME': JSON.stringify(process.env.IMAGE_HOSTNAME || 'http://localhost:8080/uploads'),
+  },
   plugins: [
     remix({
       future: {
