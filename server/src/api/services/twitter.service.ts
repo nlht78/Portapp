@@ -9,7 +9,6 @@ export class TwitterService {
 
   static async getProjectUpdates(username: string, count: number = 20): Promise<ProjectUpdate[]> {
     if (!this.BEARER_TOKEN) {
-      console.log('Twitter API not configured, using mock data');
       return this.getMockTwitterData(username);
     }
 

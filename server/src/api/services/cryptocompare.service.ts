@@ -361,7 +361,6 @@ export class CryptoCompareService {
 
     // Fallback: convert to uppercase and take first part
     const fallbackSymbol = coinGeckoId.split('-')[0].toUpperCase();
-    console.log(`⚠️  Using fallback symbol for ${coinGeckoId}: ${fallbackSymbol}`);
     return fallbackSymbol;
   }
 } 

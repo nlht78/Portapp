@@ -7,7 +7,6 @@ export class GitHubService {
 
   static async getProjectActivity(owner: string, repo: string): Promise<{ updates: ProjectUpdate[], roadmap: RoadmapItem[] }> {
     if (!this.API_TOKEN) {
-      console.log('GitHub API not configured, using mock data');
       return this.getMockGitHubData(owner, repo);
     }
 

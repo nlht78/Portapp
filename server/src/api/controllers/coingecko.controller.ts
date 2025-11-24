@@ -3,6 +3,7 @@ import { OK } from '../core/success.response';
 import * as coingeckoService from '../services/coingecko.service';
 import { CoinPaprikaService } from '../services/coinpaprika.service';
 import { MultiPricingService } from '../services/multi-pricing.service';
+import { mapToCoinGeckoId } from '../utils/token-id-mapper.util';
 
 export class CoinGeckoController {
   // Get token data by ID - CoinPaprika primary, CoinGecko fallback
@@ -70,8 +71,12 @@ export class CoinGeckoController {
       });
     }
 
+    // Map token ID to CoinGecko format (e.g., sol-solana -> solana)
+    const coinGeckoId = mapToCoinGeckoId(tokenId);
+    console.log(`📈 Chart request: ${tokenId} → ${coinGeckoId}`);
+
     const chartData = await coingeckoService.CoinGeckoService.getMarketChart(
-      tokenId, 
+      coinGeckoId, 
       daysNumber, 
       currency as string
     );

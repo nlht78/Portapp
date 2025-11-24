@@ -2,10 +2,225 @@ import { ResearchQuery, ResearchResult, ResearchFinding, AISummary, TimelineEven
 import { TwitterService } from './twitter.service';
 import { GitHubService } from './github.service';
 import { ProjectService } from './project.service';
+import { AIProviderManager } from './ai-provider-manager.service';
+import { ProviderStrategy, AIProviderRequest } from '../interfaces/ai-provider.interface';
+import { OpenAIProvider } from './providers/openai.provider';
+import { AnthropicProvider } from './providers/anthropic.provider';
+import { MegaLLMProvider } from './providers/megallm.provider';
+import { MockProvider } from './providers/mock.provider';
+import { ConfigValidator } from '../utils/config-validator';
 
 export class AIResearchService {
-  private static readonly OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-  private static readonly ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+  private static providerManager: AIProviderManager;
+
+  /**
+   * Initialize the AI Research Service with provider manager
+   * Should be called on application startup
+   */
+  static initialize(): void {
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('[AIResearchService] Initializing AI Provider Manager...');
+    console.log('═══════════════════════════════════════════════════════════');
+
+    // Step 1: Validate configuration
+    console.log('\n[Step 1] Validating configuration...');
+    const validator = new ConfigValidator();
+    const validationResult = validator.validateAIProviderConfig();
+
+    // Log validation warnings
+    if (validationResult.warnings.length > 0) {
+      console.log('\n⚠️  Configuration Warnings:');
+      validationResult.warnings.forEach((warning) => {
+        console.log(`   - ${warning}`);
+      });
+    }
+
+    // Log validation errors and throw if invalid
+    if (!validationResult.isValid) {
+      console.log('\n❌ Configuration Errors:');
+      validationResult.errors.forEach((error) => {
+        console.error(`   - ${error}`);
+      });
+      throw new Error('Invalid AI provider configuration. Please check the errors above.');
+    }
+
+    console.log('✓ Configuration validation passed');
+
+    // Step 2: Log configuration summary
+    console.log('\n[Step 2] Configuration Summary:');
+    const configSummary = ConfigValidator.getProviderConfigSummary();
+    
+    // Log provider strategy
+    const strategyEnv = process.env.AI_PROVIDER_STRATEGY || 'fallback-chain';
+    console.log(`   Strategy: ${strategyEnv}`);
+    
+    // Log cache configuration
+    const cacheEnabled = process.env.AI_RESPONSE_CACHE_ENABLED !== 'false';
+    const cacheTTL = parseInt(process.env.AI_RESPONSE_CACHE_TTL || '3600000');
+    console.log(`   Cache: ${cacheEnabled ? 'Enabled' : 'Disabled'} (TTL: ${cacheTTL}ms)`);
+    
+    // Log cost limits if configured
+    if (process.env.AI_DAILY_COST_LIMIT_USD) {
+      console.log(`   Daily Cost Limit: $${process.env.AI_DAILY_COST_LIMIT_USD}`);
+    }
+    if (process.env.AI_COST_ALERT_THRESHOLD_USD) {
+      console.log(`   Cost Alert Threshold: $${process.env.AI_COST_ALERT_THRESHOLD_USD}`);
+    }
+
+    // Step 3: Initialize provider manager with strategy
+    console.log('\n[Step 3] Initializing provider manager...');
+    let strategy: ProviderStrategy;
+
+    switch (strategyEnv.toLowerCase()) {
+      case 'primary-only':
+        strategy = ProviderStrategy.PRIMARY_ONLY;
+        break;
+      case 'fallback-chain':
+        strategy = ProviderStrategy.FALLBACK_CHAIN;
+        break;
+      case 'parallel-comparison':
+        strategy = ProviderStrategy.PARALLEL_COMPARISON;
+        break;
+      case 'cost-optimized':
+        strategy = ProviderStrategy.COST_OPTIMIZED;
+        break;
+      default:
+        console.warn(`   ⚠️  Unknown strategy '${strategyEnv}', defaulting to fallback-chain`);
+        strategy = ProviderStrategy.FALLBACK_CHAIN;
+    }
+
+    // Instantiate provider manager with configured strategy
+    this.providerManager = new AIProviderManager(strategy);
+    console.log(`   ✓ Provider manager created with strategy: ${strategyEnv}`);
+
+    // Step 4: Register providers
+    console.log('\n[Step 4] Registering AI providers...');
+    let registeredCount = 0;
+
+    // Register OpenAI provider if API key is configured
+    if (process.env.OPENAI_API_KEY && process.env.OPENAI_ENABLED !== 'false') {
+      try {
+        const config = configSummary.openai;
+        const openaiProvider = new OpenAIProvider({
+          name: 'OpenAI',
+          apiKey: process.env.OPENAI_API_KEY,
+          model: config.model || 'gpt-4',
+          maxTokens: config.maxTokens || 4000,
+          temperature: config.temperature || 0.3,
+          timeout: config.timeout || 30000,
+          enabled: config.enabled ?? true,
+          priority: config.priority || 1,
+        });
+        this.providerManager.registerProvider(openaiProvider);
+        console.log(`   ✓ OpenAI (Priority: ${config.priority}, Model: ${config.model})`);
+        registeredCount++;
+      } catch (error) {
+        console.error(`   ✗ Failed to register OpenAI provider: ${(error as Error).message}`);
+      }
+    } else {
+      console.log('   ⊘ OpenAI provider not configured');
+    }
+
+    // Register MegaLLM provider if API key is configured
+    if (process.env.MEGALLM_API_KEY && process.env.MEGALLM_ENDPOINT && process.env.MEGALLM_ENABLED !== 'false') {
+      try {
+        const config = configSummary.megallm;
+        
+        // DEBUG: Log API key info
+        const apiKey = process.env.MEGALLM_API_KEY;
+        console.log(`   🔑 MegaLLM API Key (first 20 chars): ${apiKey.substring(0, 20)}...`);
+        console.log(`   🔑 MegaLLM API Key (last 10 chars): ...${apiKey.substring(apiKey.length - 10)}`);
+        console.log(`   🔑 MegaLLM API Key length: ${apiKey.length}`);
+        
+        const megallmProvider = new MegaLLMProvider({
+          name: 'MegaLLM',
+          apiKey: process.env.MEGALLM_API_KEY,
+          endpoint: config.endpoint!,
+          model: config.model || 'default',
+          maxTokens: config.maxTokens || 4000,
+          temperature: config.temperature || 0.3,
+          timeout: config.timeout || 30000,
+          enabled: config.enabled ?? true,
+          priority: config.priority || 2,
+        });
+        this.providerManager.registerProvider(megallmProvider);
+        console.log(`   ✓ MegaLLM (Priority: ${config.priority}, Model: ${config.model}, Endpoint: ${this.maskUrl(config.endpoint!)})`);
+        registeredCount++;
+      } catch (error) {
+        console.error(`   ✗ Failed to register MegaLLM provider: ${(error as Error).message}`);
+      }
+    } else {
+      console.log('   ⊘ MegaLLM provider not configured');
+    }
+
+    // Register Anthropic provider if API key is configured
+    if (process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_ENABLED !== 'false') {
+      try {
+        const config = configSummary.anthropic;
+        const anthropicProvider = new AnthropicProvider({
+          name: 'Anthropic',
+          apiKey: process.env.ANTHROPIC_API_KEY,
+          model: config.model || 'claude-3-sonnet-20240229',
+          maxTokens: config.maxTokens || 4000,
+          temperature: config.temperature || 0.3,
+          timeout: config.timeout || 30000,
+          enabled: config.enabled ?? true,
+          priority: config.priority || 3,
+        });
+        this.providerManager.registerProvider(anthropicProvider);
+        console.log(`   ✓ Anthropic (Priority: ${config.priority}, Model: ${config.model})`);
+        registeredCount++;
+      } catch (error) {
+        console.error(`   ✗ Failed to register Anthropic provider: ${(error as Error).message}`);
+      }
+    } else {
+      console.log('   ⊘ Anthropic provider not configured');
+    }
+
+    // Always register mock provider as ultimate fallback
+    try {
+      const mockProvider = new MockProvider({
+        name: 'Mock',
+        apiKey: '',
+        enabled: true,
+        priority: 999, // Lowest priority
+      });
+      this.providerManager.registerProvider(mockProvider);
+      console.log('   ✓ Mock (Priority: 999, Fallback)');
+      registeredCount++;
+    } catch (error) {
+      console.error(`   ✗ Failed to register Mock provider: ${(error as Error).message}`);
+    }
+
+    // Step 5: Log summary
+    console.log('\n[Step 5] Initialization Summary:');
+    console.log(`   Total providers registered: ${registeredCount}`);
+    this.providerManager.logRegisteredProviders();
+
+    console.log('\n═══════════════════════════════════════════════════════════');
+    console.log('✓ AI Provider Manager initialized successfully');
+    console.log('═══════════════════════════════════════════════════════════\n');
+  }
+
+  /**
+   * Get the provider manager instance
+   * Used for health checks and monitoring
+   */
+  static getProviderManager(): AIProviderManager | null {
+    return this.providerManager || null;
+  }
+
+  /**
+   * Mask sensitive parts of URLs for logging
+   */
+  private static maskUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      return `${urlObj.protocol}//${urlObj.hostname}${urlObj.pathname}`;
+    } catch {
+      return url;
+    }
+  }
 
   static async researchToken(query: ResearchQuery): Promise<ResearchResult> {
     try {
@@ -70,15 +285,59 @@ export class AIResearchService {
       news: [],
       reddit: [],
       whitepaper: null,
+      // Add price data fields for prompt
+      currentPrice: null,
+      priceChange24h: null,
+      marketCap: null,
+      volume24h: null,
     };
 
     // Collect from existing services
     try {
+      // Map token ID to CoinGecko format (remove prefix if exists)
+      // e.g., "sol-solana" -> "solana", "btc-bitcoin" -> "bitcoin"
+      const coinGeckoId = this.mapToCoinGeckoId(query.tokenId);
+      console.log(`🔄 Token ID mapping: ${query.tokenId} → ${coinGeckoId}`);
+      
       // Get project data
-      const tokenResponse = await fetch(`https://api.coingecko.com/api/v3/coins/${query.tokenId}`);
+      const tokenResponse = await fetch(`https://api.coingecko.com/api/v3/coins/${coinGeckoId}`);
       if (tokenResponse.ok) {
         const tokenData = await tokenResponse.json();
-        data.project = await ProjectService.getProjectData(query.tokenId, tokenData);
+        // Use original tokenId for project data, but coinGeckoId was used for fetching
+        data.project = await ProjectService.getProjectData(coinGeckoId, tokenData);
+        
+        // Extract price data for prompt
+        if (tokenData.market_data) {
+          data.currentPrice = tokenData.market_data.current_price?.usd;
+          data.priceChange24h = tokenData.market_data.price_change_percentage_24h;
+          data.marketCap = tokenData.market_data.market_cap?.usd;
+          data.volume24h = tokenData.market_data.total_volume?.usd;
+          
+          console.log(`💰 Price data extracted: $${data.currentPrice}, 24h: ${data.priceChange24h}%`);
+        }
+      }
+
+      // Fallback: If no price data from CoinGecko, try Multi-Pricing API
+      if (!data.currentPrice) {
+        console.log(`🔄 Fallback: Fetching price from multi-pricing API for ${query.tokenId}`);
+        try {
+          const pricingResponse = await fetch(`http://localhost:8080/api/v1/multi-pricing/prices?ids=${query.tokenId}`);
+          if (pricingResponse.ok) {
+            const pricingData = await pricingResponse.json();
+            const priceInfo = pricingData.metadata?.prices?.[query.tokenId];
+            
+            if (priceInfo) {
+              data.currentPrice = priceInfo.price;
+              data.priceChange24h = priceInfo.change24h;
+              data.marketCap = priceInfo.marketCap;
+              data.volume24h = priceInfo.volume24h;
+              
+              console.log(`💰 Price data from multi-pricing: $${data.currentPrice}, 24h: ${data.priceChange24h}%`);
+            }
+          }
+        } catch (error) {
+          console.error(`❌ Multi-pricing API also failed:`, error);
+        }
       }
 
       // Get Twitter data if available
@@ -687,111 +946,6 @@ export class AIResearchService {
     return 'other';
   }
 
-  private static async generateAISummary(findings: ResearchFinding[], query: ResearchQuery): Promise<AISummary> {
-    if (this.OPENAI_API_KEY) {
-      return this.generateOpenAISummary(findings, query);
-    }
-
-    return this.generateMockAISummary(findings, query);
-  }
-
-  private static async generateOpenAISummary(findings: ResearchFinding[], query: ResearchQuery): Promise<AISummary> {
-    try {
-      const prompt = this.buildAIPrompt(findings, query);
-      
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a cryptocurrency research analyst. Provide comprehensive analysis based on the provided data.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          max_tokens: 2000,
-          temperature: 0.3,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        return this.parseAIResponse(data.choices[0].message.content);
-      }
-    } catch (error) {
-      console.error('OpenAI API error:', error);
-    }
-
-    return this.generateMockAISummary(findings, query);
-  }
-
-  private static buildAIPrompt(findings: ResearchFinding[], query: ResearchQuery): string {
-    const findingsText = findings.map(f => 
-      `- ${f.category.toUpperCase()}: ${f.title} (${f.status}, confidence: ${f.confidence})
-       Description: ${f.description}
-       Source: ${f.source.name} (${f.source.isOfficial ? 'Official' : 'Unofficial'})
-       Date: ${f.date.toISOString()}`
-    ).join('\n\n');
-
-    return `
-Analyze the following findings for ${query.tokenId} and provide a comprehensive research summary:
-
-FINDINGS:
-${findingsText}
-
-QUERY: ${query.query}
-
-Please provide:
-1. Executive Summary (2-3 sentences)
-2. Key Highlights (5-7 bullet points)
-3. Timeline of important events
-4. Investment Recommendations
-5. Potential Risks
-6. Opportunities
-7. Next Steps for investors
-
-Format the response as JSON with the following structure:
-{
-  "executiveSummary": "...",
-  "keyHighlights": ["...", "..."],
-  "timeline": [
-    {
-      "date": "2025-07-01",
-      "title": "...",
-      "description": "...",
-      "category": "...",
-      "status": "upcoming"
-    }
-  ],
-  "recommendations": ["...", "..."],
-  "risks": ["...", "..."],
-  "opportunities": ["...", "..."],
-  "nextSteps": ["...", "..."]
-}
-    `;
-  }
-
-  private static parseAIResponse(response: string): AISummary {
-    try {
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
-      }
-    } catch (error) {
-      console.error('Error parsing AI response:', error);
-    }
-
-    return this.generateMockAISummary([], { tokenId: '', query: '', sources: [], timeRange: '30d', includeHistorical: false });
-  }
-
   private static generateMockAISummary(findings: ResearchFinding[], query: ResearchQuery): AISummary {
     const tokenType = this.getTokenType(query.tokenId);
     const tokenName = query.tokenId.toUpperCase();
@@ -1248,6 +1402,51 @@ Based on analysis of ${findings.length} findings from ${findings.filter(f => f.s
     return Math.min(confidence, 1.0);
   }
 
+  /**
+   * Map token ID to CoinGecko format
+   * Handles both CoinGecko format (bitcoin) and CoinPaprika format (btc-bitcoin)
+   */
+  private static mapToCoinGeckoId(tokenId: string): string {
+    // Common mappings from CoinPaprika/other formats to CoinGecko
+    const mapping: Record<string, string> = {
+      'btc-bitcoin': 'bitcoin',
+      'eth-ethereum': 'ethereum',
+      'sol-solana': 'solana',
+      'ada-cardano': 'cardano',
+      'dot-polkadot': 'polkadot',
+      'matic-polygon': 'polygon',
+      'avax-avalanche': 'avalanche-2',
+      'link-chainlink': 'chainlink',
+      'uni-uniswap': 'uniswap',
+      'atom-cosmos': 'cosmos',
+      'xrp-xrp': 'ripple',
+      'doge-dogecoin': 'dogecoin',
+      'shib-shiba-inu': 'shiba-inu',
+      'bnb-binance-coin': 'binancecoin',
+      'usdt-tether': 'tether',
+      'usdc-usd-coin': 'usd-coin',
+    };
+
+    // Check if mapping exists
+    const lowerTokenId = tokenId.toLowerCase();
+    if (mapping[lowerTokenId]) {
+      return mapping[lowerTokenId];
+    }
+
+    // If token ID has format "xxx-name", try to extract the name part
+    // e.g., "sol-solana" -> "solana"
+    if (lowerTokenId.includes('-')) {
+      const parts = lowerTokenId.split('-');
+      if (parts.length >= 2) {
+        // Return the part after first dash (usually the full name)
+        return parts.slice(1).join('-');
+      }
+    }
+
+    // Return as-is if no mapping found
+    return lowerTokenId;
+  }
+
   private static extractTwitterHandle(twitterUrl: string): string | null {
     if (!twitterUrl) return null;
     const match = twitterUrl.match(/twitter\.com\/([^\/\?]+)/);
@@ -1285,159 +1484,181 @@ Based on analysis of ${findings.length} findings from ${findings.filter(f => f.s
 
   private static async generateAIResearchResponse(query: ResearchQuery, rawData: any): Promise<any> {
     console.log('🔍 AI Research Debug:');
-    console.log('- OPENAI_API_KEY exists:', !!this.OPENAI_API_KEY);
-    console.log('- ANTHROPIC_API_KEY exists:', !!this.ANTHROPIC_API_KEY);
     console.log('- Query:', query);
+    console.log('- Using AI Provider Manager with strategy:', this.providerManager?.getStrategy());
     
-    if (this.OPENAI_API_KEY) {
-      console.log('🤖 Using OpenAI API...');
-      return this.generateOpenAIResearchResponse(query, rawData);
-    } else if (this.ANTHROPIC_API_KEY) {
-      console.log('🤖 Using Anthropic API...');
-      return this.generateAnthropicResearchResponse(query, rawData);
-    } else {
-      console.log('🤖 Using Mock AI Response...');
+    // Check if provider manager is initialized
+    if (!this.providerManager) {
+      console.warn('🤖 Provider manager not initialized, using mock response');
       return this.generateMockAIResponse(query, rawData);
     }
-  }
 
-  private static async generateOpenAIResearchResponse(query: ResearchQuery, rawData: any): Promise<any> {
     try {
-      console.log('🤖 OpenAI: Starting API call...');
-      const prompt = this.buildResearchPrompt(query, rawData);
-      console.log('🤖 OpenAI: Prompt length:', prompt.length);
-      
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4',
-          messages: [
-            {
-              role: 'system',
-              content: 'Bạn là một chuyên gia phân tích cryptocurrency và blockchain. Hãy cung cấp phân tích chi tiết, chính xác và có cấu trúc về các dự án token. Trả lời bằng tiếng Việt.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          max_tokens: 4000,
-          temperature: 0.3,
-        }),
-      });
-
-      console.log('🤖 OpenAI: Response status:', response.status);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('🤖 OpenAI: Response received, choices:', data.choices?.length);
-        const aiResponse = data.choices[0].message.content;
-        console.log('🤖 OpenAI: AI Response length:', aiResponse?.length);
-        return this.parseAIResponseToStructured(aiResponse, query.tokenId);
-      } else {
-        const errorText = await response.text();
-        console.error('🤖 OpenAI: API Error:', response.status, errorText);
-      }
-    } catch (error) {
-      console.error('🤖 OpenAI: Network/Other error:', error);
-    }
-
-    console.log('🤖 OpenAI: Falling back to mock response');
-    return this.generateMockAIResponse(query, rawData);
-  }
-
-  private static async generateAnthropicResearchResponse(query: ResearchQuery, rawData: any): Promise<any> {
-    try {
+      // Build the research prompt
       const prompt = this.buildResearchPrompt(query, rawData);
       
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.ANTHROPIC_API_KEY}`,
-          'Content-Type': 'application/json',
-          'anthropic-version': '2023-06-01',
+      // Build the AI provider request
+      const request: AIProviderRequest = {
+        prompt,
+        systemPrompt: 'Bạn là một chuyên gia phân tích đầu tư cryptocurrency và blockchain với nhiều năm kinh nghiệm. Hãy cung cấp phân tích chi tiết, khách quan và có cấu trúc về các dự án token, bao gồm đánh giá rủi ro và tiềm năng đầu tư. Sử dụng thang điểm 0-10 để đánh giá các khía cạnh khác nhau. Trả lời bằng tiếng Việt.',
+        maxTokens: 4000,
+        temperature: 0.3,
+        metadata: {
+          tokenId: query.tokenId,
+          timeRange: query.timeRange,
+          sources: query.sources,
         },
-        body: JSON.stringify({
-          model: 'claude-3-sonnet-20240229',
-          max_tokens: 4000,
-          messages: [
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-        }),
-      });
+      };
 
-      if (response.ok) {
-        const data = await response.json();
-        const aiResponse = data.content[0].text;
-        return this.parseAIResponseToStructured(aiResponse, query.tokenId);
-      }
+      console.log('🤖 Calling provider manager...');
+      
+      // Call provider manager to generate response
+      const response = await this.providerManager.generateResponse(request);
+      
+      console.log(`🤖 Response received from ${response.provider} (cached: ${response.cached})`);
+      console.log(`🤖 Response time: ${response.responseTime}ms, tokens: ${response.tokensUsed || 'N/A'}`);
+      
+      // Parse the AI response to structured format
+      return this.parseAIResponseToStructured(response.content, query.tokenId);
+      
     } catch (error) {
-      console.error('Anthropic API error:', error);
+      console.error('🤖 Provider manager error:', (error as Error).message);
+      console.log('🤖 Falling back to mock response');
+      
+      // Fallback to mock data if all providers fail
+      return this.generateMockAIResponse(query, rawData);
     }
-
-    return this.generateMockAIResponse(query, rawData);
   }
 
   private static buildResearchPrompt(query: ResearchQuery, rawData: any): string {
     const tokenName = query.tokenId.toUpperCase();
     
-    return `Bạn có thể tìm kiếm, phân tích và tổng hợp thông tin từ các nguồn khác nhau như Twitter, GitHub, whitepaper, news, website chính thức để biết được sắp tới các dự định, roadmap, chức năng, cơ chế, cách kiếm tiền, thời gian ra mắt và các thông tin quan trọng khác của ${tokenName} sắp tới đây được không?
+    // Extract real-time price data from rawData if available
+    let priceContext = '';
+    if (rawData) {
+      const currentPrice = rawData.currentPrice || rawData.price || rawData.current_price;
+      const priceChange24h = rawData.priceChange24h || rawData.price_change_24h || rawData.price_change_percentage_24h;
+      const marketCap = rawData.marketCap || rawData.market_cap;
+      const volume24h = rawData.volume24h || rawData.total_volume;
+      
+      if (currentPrice) {
+        priceContext = `\n📊 DỮ LIỆU GIÁ REALTIME (quan trọng - sử dụng để phân tích):\n`;
+        priceContext += `- Giá hiện tại: $${typeof currentPrice === 'number' ? currentPrice.toLocaleString() : currentPrice}\n`;
+        
+        if (priceChange24h !== undefined && priceChange24h !== null) {
+          priceContext += `- Biến động 24h: ${priceChange24h > 0 ? '+' : ''}${typeof priceChange24h === 'number' ? priceChange24h.toFixed(2) : priceChange24h}%\n`;
+        }
+        
+        if (marketCap) {
+          priceContext += `- Market Cap: $${typeof marketCap === 'number' ? marketCap.toLocaleString() : marketCap}\n`;
+        }
+        
+        if (volume24h) {
+          priceContext += `- Volume 24h: $${typeof volume24h === 'number' ? volume24h.toLocaleString() : volume24h}\n`;
+        }
+        
+        priceContext += `\n⚠️ LƯU Ý: Đây là dữ liệu giá THỰC TẾ từ API. Hãy sử dụng các con số này trong phân tích của bạn, KHÔNG tự tạo ra số liệu giả.\n\n`;
+      }
+    }
+    
+    return `${priceContext}Bạn có thể tìm kiếm, phân tích và tổng hợp thông tin từ các nguồn khác nhau như Twitter, GitHub, whitepaper, news, website để đưa ra các thông tin từ dự án ${tokenName} theo các yêu cầu sau:
 
-Hãy cung cấp phân tích chi tiết và toàn diện về:
+📋 1. THÔNG TIN DỰ ÁN:
+- Mô tả đầy đủ về dự án: ${tokenName} làm về gì?
+- Link X (Twitter) chính thức
+- Thông tin về team/founder
+- Thông tin về token (symbol, supply, contract address)
+- Các đối tác chiến lược
+- Nhà đầu tư: Đã gọi vốn được bao nhiêu từ các quỹ, nhà đầu tư nào?
+- Các vòng gọi vốn (seed, private, public)
 
-📅 ROADMAP & KẾ HOẠCH SẮP TỚI:
-- Các sự kiện quan trọng sắp diễn ra
-- Tính năng mới sẽ ra mắt
-- Cập nhật game/ecosystem
-- Partnerships và collaborations
+💰 2. CƠ CHẾ TOKEN & HOẠT ĐỘNG:
+- Cơ chế token: utility, governance, staking
+- Doanh thu của dự án (nếu có)
+- Các update gần đây (cho thấy dự án đang phát triển và còn hoạt động)
+- Roadmap đã thực hiện và sắp tới
+- Tình hình phát triển sản phẩm
 
-💸 TOKENOMICS & CƠ CHẾ TOKEN:
-- Thay đổi tokenomics sắp tới
-- Staking rewards và mechanisms
-- Token distribution và unlock schedule
-- Governance và voting
+👥 3. CỘNG ĐỒNG & NGƯỜI DÙNG:
+- Cộng đồng có active nhiều không?
+- Số lượng holders, trading volume
+- Người dùng có tin tưởng dự án nhiều không?
+- Sentiment trên social media
+- Dự án có phần thưởng gì cho cộng đồng không? (airdrop, staking rewards, etc.)
 
-🎮 CƠ HỘI KIẾM TIỀN:
-- Play-to-earn opportunities
-- Staking và yield farming
-- Airdrops và rewards
-- Trading opportunities
+🎉 4. SỰ KIỆN & CHƯƠNG TRÌNH:
+- Hiện tại có chương trình/sự kiện nào đang chạy không?
+- Airdrop campaigns
+- Staking programs
+- Partnership announcements
+- Upcoming events
 
-🔧 PHÁT TRIỂN & ĐỐI TÁC:
-- Technical updates
-- Platform improvements
-- Strategic partnerships
-- Developer activities
+📊 5. PHÂN TÍCH GIÁ:
+- Cho biết tại sao có biến động giá 24h qua
+- Các yếu tố ảnh hưởng đến giá
+- Volume trading thay đổi như thế nào
+- Tin tức/sự kiện gây ảnh hưởng
 
-🗳️ QUẢN TRỊ & AIRDROP:
-- Governance proposals
-- Community voting
-- Airdrop events
-- Community rewards
+⭐ 6. ĐÁNH GIÁ & GỢI Ý (QUAN TRỌNG):
+Tự phân tích, tổng hợp lại từ các thông tin trên để đưa ra các gợi ý với thang điểm từ 0-10:
 
-Hãy trả lời bằng tiếng Việt với cấu trúc rõ ràng, chi tiết và có thông tin cụ thể. Sử dụng thông tin thực tế và cập nhật nhất có thể từ các nguồn đáng tin cậy.`;
+🎯 Có nên đầu tư? [X/10]
+- Lý do: ...
+- Rủi ro: ...
+- Cơ hội: ...
+
+🚀 Dự án tiềm năng? [X/10]
+- Lý do: ...
+- Điểm mạnh: ...
+- Điểm yếu: ...
+
+🔮 Dự án có tầm nhìn dài hạn? [X/10]
+- Lý do: ...
+- Roadmap: ...
+- Sustainability: ...
+
+📝 KẾT LUẬN TỔNG QUAN:
+- Tóm tắt đánh giá chung
+- Khuyến nghị cho nhà đầu tư
+- Mức độ rủi ro: Thấp/Trung bình/Cao
+
+Hãy trả lời bằng tiếng Việt với cấu trúc rõ ràng, chi tiết và có thông tin cụ thể. Sử dụng thông tin thực tế và cập nhật nhất có thể từ các nguồn đáng tin cậy. Đưa ra đánh giá khách quan dựa trên dữ liệu thực tế.`;
   }
 
   private static parseAIResponseToStructured(aiResponse: string, tokenId: string): any {
-    // Return the AI response directly as structured data
+    // Return the AI response directly as structured data with new structure
     return {
-      executiveSummary: `Phân tích ${tokenId.toUpperCase()} từ AI Research`,
+      executiveSummary: `Phân tích đầu tư ${tokenId.toUpperCase()} từ AI Research`,
       detailedAnalysis: aiResponse,
       fullResponse: aiResponse,
-      roadmap: this.extractRoadmapFromText(aiResponse),
+      
+      // Section 1: Project Info
+      projectInfo: this.extractProjectInfoFromText(aiResponse),
+      
+      // Section 2: Tokenomics & Operations
       tokenomics: this.extractTokenomicsFromText(aiResponse),
+      operations: this.extractOperationsFromText(aiResponse),
+      
+      // Section 3: Community
+      community: this.extractCommunityFromText(aiResponse),
+      
+      // Section 4: Events
+      events: this.extractEventsFromText(aiResponse),
+      
+      // Section 5: Price Analysis
+      priceAnalysis: this.extractPriceAnalysisFromText(aiResponse),
+      
+      // Section 6: Investment Ratings (NEW - IMPORTANT)
+      ratings: this.extractRatingsFromText(aiResponse),
+      
+      // Legacy fields for backward compatibility
+      roadmap: this.extractRoadmapFromText(aiResponse),
       earning: this.extractEarningFromText(aiResponse),
       development: this.extractDevelopmentFromText(aiResponse),
       partnerships: this.extractPartnershipsFromText(aiResponse),
       governance: this.extractGovernanceFromText(aiResponse),
       airdrops: this.extractAirdropsFromText(aiResponse),
+      
       sources: this.extractSourcesFromText(aiResponse),
       conclusion: this.extractConclusionFromText(aiResponse),
       confidence: 0.85
@@ -1683,6 +1904,309 @@ Hãy trả lời bằng tiếng Việt với cấu trúc rõ ràng, chi tiết v
     }
     
     return conclusionLines.length > 0 ? conclusionLines.join(' ') : 'Phân tích hoàn thành';
+  }
+
+  // NEW EXTRACTION METHODS FOR NEW PROMPT STRUCTURE
+
+  private static extractProjectInfoFromText(text: string): any {
+    const info: any = {
+      description: '',
+      socialLinks: [],
+      team: '',
+      token: '',
+      partners: [],
+      investors: [],
+      funding: ''
+    };
+    
+    const lines = text.split('\n');
+    let inProjectSection = false;
+    
+    for (const line of lines) {
+      if (line.includes('📋') || line.includes('THÔNG TIN DỰ ÁN')) {
+        inProjectSection = true;
+        continue;
+      }
+      if (inProjectSection && (line.includes('💰') || line.includes('CƠ CHẾ TOKEN'))) {
+        break;
+      }
+      if (inProjectSection && line.trim()) {
+        if (line.toLowerCase().includes('mô tả') || line.toLowerCase().includes('làm về')) {
+          info.description += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+        }
+        if (line.toLowerCase().includes('twitter') || line.toLowerCase().includes('link x')) {
+          info.socialLinks.push(line.trim());
+        }
+        if (line.toLowerCase().includes('team') || line.toLowerCase().includes('founder')) {
+          info.team += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+        }
+        if (line.toLowerCase().includes('token') || line.toLowerCase().includes('symbol')) {
+          info.token += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+        }
+        if (line.toLowerCase().includes('đối tác') || line.toLowerCase().includes('partner')) {
+          info.partners.push(line.replace(/[-•🔹🔸]/g, '').trim());
+        }
+        if (line.toLowerCase().includes('nhà đầu tư') || line.toLowerCase().includes('investor')) {
+          info.investors.push(line.replace(/[-•🔹🔸]/g, '').trim());
+        }
+        if (line.toLowerCase().includes('gọi vốn') || line.toLowerCase().includes('funding')) {
+          info.funding += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+        }
+      }
+    }
+    
+    return info;
+  }
+
+  private static extractOperationsFromText(text: string): any {
+    const operations: any = {
+      revenue: '',
+      recentUpdates: [],
+      roadmap: '',
+      development: ''
+    };
+    
+    const lines = text.split('\n');
+    let inOperationsSection = false;
+    
+    for (const line of lines) {
+      if (line.includes('💰') || line.includes('CƠ CHẾ TOKEN & HOẠT ĐỘNG')) {
+        inOperationsSection = true;
+        continue;
+      }
+      if (inOperationsSection && (line.includes('👥') || line.includes('CỘNG ĐỒNG'))) {
+        break;
+      }
+      if (inOperationsSection && line.trim()) {
+        if (line.toLowerCase().includes('doanh thu') || line.toLowerCase().includes('revenue')) {
+          operations.revenue += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+        }
+        if (line.toLowerCase().includes('update') || line.toLowerCase().includes('cập nhật')) {
+          operations.recentUpdates.push(line.replace(/[-•🔹🔸]/g, '').trim());
+        }
+        if (line.toLowerCase().includes('roadmap')) {
+          operations.roadmap += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+        }
+        if (line.toLowerCase().includes('phát triển') || line.toLowerCase().includes('development')) {
+          operations.development += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+        }
+      }
+    }
+    
+    return operations;
+  }
+
+  private static extractCommunityFromText(text: string): any {
+    const community: any = {
+      isActive: false,
+      holders: '',
+      sentiment: '',
+      trust: '',
+      rewards: []
+    };
+    
+    const lines = text.split('\n');
+    let inCommunitySection = false;
+    
+    for (const line of lines) {
+      if (line.includes('👥') || line.includes('CỘNG ĐỒNG')) {
+        inCommunitySection = true;
+        continue;
+      }
+      if (inCommunitySection && (line.includes('🎉') || line.includes('SỰ KIỆN'))) {
+        break;
+      }
+      if (inCommunitySection && line.trim()) {
+        if (line.toLowerCase().includes('active')) {
+          community.isActive = !line.toLowerCase().includes('không');
+        }
+        if (line.toLowerCase().includes('holder') || line.toLowerCase().includes('volume')) {
+          community.holders += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+        }
+        if (line.toLowerCase().includes('tin tưởng') || line.toLowerCase().includes('trust')) {
+          community.trust += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+        }
+        if (line.toLowerCase().includes('sentiment')) {
+          community.sentiment += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+        }
+        if (line.toLowerCase().includes('phần thưởng') || line.toLowerCase().includes('reward') || line.toLowerCase().includes('airdrop')) {
+          community.rewards.push(line.replace(/[-•🔹🔸]/g, '').trim());
+        }
+      }
+    }
+    
+    return community;
+  }
+
+  private static extractEventsFromText(text: string): any[] {
+    const events: any[] = [];
+    const lines = text.split('\n');
+    let inEventsSection = false;
+    
+    for (const line of lines) {
+      if (line.includes('🎉') || line.includes('SỰ KIỆN')) {
+        inEventsSection = true;
+        continue;
+      }
+      if (inEventsSection && (line.includes('📊') || line.includes('PHÂN TÍCH GIÁ'))) {
+        break;
+      }
+      if (inEventsSection && (line.includes('🔹') || line.includes('🔸') || line.includes('•') || line.includes('-'))) {
+        const eventText = line.replace(/[🔹🔸•-]/g, '').trim();
+        if (eventText) {
+          events.push({
+            title: eventText,
+            description: eventText,
+            status: 'ongoing',
+            source: 'AI Analysis'
+          });
+        }
+      }
+    }
+    
+    return events;
+  }
+
+  private static extractPriceAnalysisFromText(text: string): any {
+    const analysis: any = {
+      reason24h: '',
+      factors: [],
+      volumeChange: '',
+      newsImpact: ''
+    };
+    
+    const lines = text.split('\n');
+    let inPriceSection = false;
+    
+    for (const line of lines) {
+      if (line.includes('📊') || line.includes('PHÂN TÍCH GIÁ')) {
+        inPriceSection = true;
+        continue;
+      }
+      if (inPriceSection && (line.includes('⭐') || line.includes('ĐÁNH GIÁ'))) {
+        break;
+      }
+      if (inPriceSection && line.trim()) {
+        if (line.toLowerCase().includes('biến động') || line.toLowerCase().includes('24h')) {
+          analysis.reason24h += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+        }
+        if (line.toLowerCase().includes('yếu tố') || line.toLowerCase().includes('factor')) {
+          analysis.factors.push(line.replace(/[-•🔹🔸]/g, '').trim());
+        }
+        if (line.toLowerCase().includes('volume')) {
+          analysis.volumeChange += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+        }
+        if (line.toLowerCase().includes('tin tức') || line.toLowerCase().includes('news') || line.toLowerCase().includes('sự kiện')) {
+          analysis.newsImpact += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+        }
+      }
+    }
+    
+    return analysis;
+  }
+
+  private static extractRatingsFromText(text: string): any {
+    const ratings: any = {
+      investment: { score: 0, reason: '', risks: '', opportunities: '' },
+      potential: { score: 0, reason: '', strengths: '', weaknesses: '' },
+      longTerm: { score: 0, reason: '', roadmap: '', sustainability: '' },
+      overallConclusion: '',
+      recommendation: '',
+      riskLevel: 'Trung bình'
+    };
+    
+    const lines = text.split('\n');
+    let currentSection = '';
+    
+    for (const line of lines) {
+      // Detect rating sections
+      if (line.includes('⭐') || line.includes('ĐÁNH GIÁ')) {
+        currentSection = 'ratings';
+        continue;
+      }
+      if (line.includes('🎯') || line.includes('Có nên đầu tư')) {
+        currentSection = 'investment';
+        // Extract score from [X/10] format
+        const scoreMatch = line.match(/\[(\d+)\/10\]/);
+        if (scoreMatch) {
+          ratings.investment.score = parseInt(scoreMatch[1]);
+        }
+        continue;
+      }
+      if (line.includes('🚀') || line.includes('Dự án tiềm năng')) {
+        currentSection = 'potential';
+        const scoreMatch = line.match(/\[(\d+)\/10\]/);
+        if (scoreMatch) {
+          ratings.potential.score = parseInt(scoreMatch[1]);
+        }
+        continue;
+      }
+      if (line.includes('🔮') || line.includes('tầm nhìn dài hạn')) {
+        currentSection = 'longTerm';
+        const scoreMatch = line.match(/\[(\d+)\/10\]/);
+        if (scoreMatch) {
+          ratings.longTerm.score = parseInt(scoreMatch[1]);
+        }
+        continue;
+      }
+      if (line.includes('📝') || line.includes('KẾT LUẬN')) {
+        currentSection = 'conclusion';
+        continue;
+      }
+      
+      // Extract content based on current section
+      if (line.trim()) {
+        if (currentSection === 'investment') {
+          if (line.toLowerCase().includes('lý do')) {
+            ratings.investment.reason += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+          }
+          if (line.toLowerCase().includes('rủi ro')) {
+            ratings.investment.risks += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+          }
+          if (line.toLowerCase().includes('cơ hội')) {
+            ratings.investment.opportunities += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+          }
+        }
+        if (currentSection === 'potential') {
+          if (line.toLowerCase().includes('lý do')) {
+            ratings.potential.reason += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+          }
+          if (line.toLowerCase().includes('điểm mạnh')) {
+            ratings.potential.strengths += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+          }
+          if (line.toLowerCase().includes('điểm yếu')) {
+            ratings.potential.weaknesses += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+          }
+        }
+        if (currentSection === 'longTerm') {
+          if (line.toLowerCase().includes('lý do')) {
+            ratings.longTerm.reason += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+          }
+          if (line.toLowerCase().includes('roadmap')) {
+            ratings.longTerm.roadmap += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+          }
+          if (line.toLowerCase().includes('sustainability')) {
+            ratings.longTerm.sustainability += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+          }
+        }
+        if (currentSection === 'conclusion') {
+          if (line.toLowerCase().includes('tóm tắt')) {
+            ratings.overallConclusion += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+          }
+          if (line.toLowerCase().includes('khuyến nghị')) {
+            ratings.recommendation += line.replace(/[-•🔹🔸]/g, '').trim() + ' ';
+          }
+          if (line.toLowerCase().includes('rủi ro')) {
+            const riskMatch = line.match(/(Thấp|Trung bình|Cao)/i);
+            if (riskMatch) {
+              ratings.riskLevel = riskMatch[1];
+            }
+          }
+        }
+      }
+    }
+    
+    return ratings;
   }
 
   private static parseAIResponseToFindings(aiResponse: any, tokenId: string): ResearchFinding[] {

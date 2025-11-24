@@ -69,6 +69,14 @@ export class CoinPaprikaService {
 
   // Map common CoinGecko IDs to CoinPaprika IDs
   private static mapToPaprikaId(coinGeckoId: string): string {
+    // Check if already in Paprika format (e.g., btc-bitcoin)
+    // Paprika IDs typically have format: symbol-name
+    const paprikaPattern = /^[a-z0-9]+-[a-z0-9-]+$/i;
+    if (paprikaPattern.test(coinGeckoId)) {
+      // Already in Paprika format, return as-is
+      return coinGeckoId;
+    }
+
     const mapping: Record<string, string> = {
       'bitcoin': 'btc-bitcoin',
       'ethereum': 'eth-ethereum',
@@ -162,8 +170,8 @@ export class CoinPaprikaService {
   }
 
   static async getTokenData(tokenId: string): Promise<FormattedTokenData> {
+    const originalTokenId = tokenId; // Keep original ID for response
     const paprikaId = this.mapToPaprikaId(tokenId);
-    console.log(`🔍 CoinPaprika: Mapping ${tokenId} → ${paprikaId}`);
     
     const maxRetries = 3;
     let lastError: any;
@@ -172,11 +180,8 @@ export class CoinPaprikaService {
       try {
         // Add delay between retries
         if (attempt > 1) {
-          console.log(`⏳ CoinPaprika: Retry attempt ${attempt} for ${paprikaId}`);
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
         }
-
-        console.log(`📡 CoinPaprika: Fetching data for ${paprikaId}...`);
 
         // Fetch coin info and ticker data in parallel
         const [coinInfoRes, tickerRes] = await Promise.all([
@@ -197,15 +202,12 @@ export class CoinPaprikaService {
 
         const coin = coinInfoRes.data;
         const ticker = tickerRes.data;
-        
-        console.log(`✅ CoinPaprika: Got basic data for ${paprikaId} - ${ticker.name} ($${ticker.quotes?.USD?.price})`);
 
         // Get market data (exchanges) with multiple fallback strategies
         let exchanges: CoinPaprikaExchange[] = [];
         
         // Strategy 1: Try CoinPaprika markets endpoint
         try {
-          console.log(`📊 Fetching markets for ${paprikaId} from CoinPaprika...`);
           const marketsRes = await axios.get<CoinPaprikaMarket[]>(`${this.BASE_URL}/tickers/${paprikaId}/markets`, {
             params: { quotes: 'USD' },
             timeout: 8000,
@@ -225,15 +227,13 @@ export class CoinPaprikaService {
                 trustScore: market.trust_score || 'unknown',
                 tradeUrl: market.market_url || '',
               }));
-            console.log(`✅ Found ${exchanges.length} markets from CoinPaprika for ${paprikaId}`);
           }
         } catch (marketError) {
-          console.warn(`❌ CoinPaprika markets failed for ${paprikaId}:`, marketError);
+          // Markets fetch failed, continue
         }
 
         // Strategy 2: If no markets found, try to get popular exchanges for this token
         if (exchanges.length === 0) {
-          console.log(`🔄 No CoinPaprika markets found, generating popular exchanges for ${paprikaId}...`);
           exchanges = this.generatePopularExchanges(paprikaId, ticker);
         }
 
@@ -289,7 +289,7 @@ export class CoinPaprikaService {
 
         // Format data to match CoinGecko structure
         const formatted: FormattedTokenData = {
-          id: this.mapToGeckoId(paprikaId), // Use original tokenId for consistency
+          id: originalTokenId, // Return the original ID that client sent
           name: ticker.name || coin.name || 'Unknown Token',
           symbol: (ticker.symbol || coin.symbol || '').toUpperCase(),
           currentPrice: ticker.quotes?.USD?.price || 0,
@@ -331,7 +331,6 @@ export class CoinPaprikaService {
         
         // If it's a 404, don't retry
         if (axios.isAxiosError(error) && error.response?.status === 404) {
-          console.log(`🚫 CoinPaprika: 404 for ${paprikaId}, not retrying`);
           break;
         }
       }

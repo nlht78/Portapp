@@ -208,15 +208,12 @@ export default function TokenSelectDropdown({
                     src={selectedToken.image}
                     alt={selectedToken.symbol}
                     className="w-6 h-6 rounded-full"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                    }}
                   />
-                ) : null}
-                <span className="text-sm font-medium text-gray-600 hidden">
-                  {selectedToken.symbol[0]}
-                </span>
+                ) : (
+                  <span className="text-sm font-medium text-gray-600">
+                    {selectedToken.symbol[0]}
+                  </span>
+                )}
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-900">{selectedToken.name}</p>
@@ -291,15 +288,12 @@ export default function TokenSelectDropdown({
                                 src={token.image}
                                 alt={token.symbol}
                                 className="w-6 h-6 rounded-full"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                }}
                               />
-                            ) : null}
-                            <span className="text-sm font-medium text-gray-600 hidden">
-                              {token.symbol[0]}
-                            </span>
+                            ) : (
+                              <span className="text-sm font-medium text-gray-600">
+                                {token.symbol[0]}
+                              </span>
+                            )}
                           </div>
                           <div>
                             <p className="text-sm font-medium text-gray-900">{token.name}</p>

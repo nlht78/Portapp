@@ -78,10 +78,21 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        console.log('AI Research Response:', data);
+        const responseData = await response.json();
+        console.log('AI Research Response:', responseData);
+        
+        // Extract actual data from metadata if it exists
+        const data = responseData.metadata || responseData;
+        
+        console.log('Extracted data:', data);
+        console.log('Response has findings:', !!data.findings);
+        console.log('Findings length:', data.findings?.length);
+        console.log('Response has detailedAnalysis:', !!data.detailedAnalysis);
+        console.log('DetailedAnalysis length:', data.detailedAnalysis?.length);
+        
         setResearchResult(data);
       } else {
+        console.error('Research failed with status:', response.status);
         throw new Error('Research failed');
       }
     } catch (error) {
@@ -137,6 +148,7 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
 
     const tokenType = getTokenType(tokenId);
     const tokenName = tokenData.name || tokenId.toUpperCase();
+    const hasFindings = researchResult.findings && researchResult.findings.length > 0;
 
     return (
       <div className="space-y-6">
@@ -145,16 +157,26 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
           <h3 className="text-xl font-bold text-gray-900 mb-4">📊 Tổng hợp mới nhất</h3>
           <div className="prose max-w-none">
             <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-              {researchResult.detailedAnalysis}
+              {researchResult.detailedAnalysis || researchResult.summary || 'Không có dữ liệu phân tích'}
             </div>
           </div>
         </div>
 
-        {/* Key Findings */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">🔍 Key Findings</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {researchResult.findings.slice(0, 9).map((finding, index) => (
+        {/* Show message if no findings */}
+        {!hasFindings && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p className="text-yellow-800">
+              ℹ️ Phân tích AI đã hoàn thành nhưng không tìm thấy findings chi tiết. Vui lòng xem phần tổng hợp ở trên.
+            </p>
+          </div>
+        )}
+
+        {/* Key Findings - Only show if has findings */}
+        {hasFindings && (
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">🔍 Key Findings</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {(researchResult.findings || []).slice(0, 9).map((finding, index) => (
               <div key={finding.id} className="p-4 bg-gray-50 rounded-lg border-l-4 border-blue-500">
                 <div className="flex items-start justify-between mb-2">
                   <h4 className="font-semibold text-gray-900 text-sm">{finding.title}</h4>
@@ -180,17 +202,19 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
                   </span>
                 </div>
               </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Roadmap Section */}
+        {/* Roadmap Section - Only show if has findings */}
+        {hasFindings && (
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
             📅 Các mốc kế hoạch và roadmap sắp tới
           </h3>
           <div className="space-y-4">
-            {researchResult.findings
+            {(researchResult.findings || [])
               .filter(f => f.category === 'roadmap')
               .slice(0, 5)
               .map((finding, index) => (
@@ -212,14 +236,16 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
               ))}
           </div>
         </div>
+        )}
 
         {/* Tokenomics Section */}
+        {hasFindings && (
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
             💸 Tokenomics & Cơ chế {tokenName}
           </h3>
           <div className="space-y-4">
-            {researchResult.findings
+            {(researchResult.findings || [])
               .filter(f => f.category === 'tokenomics')
               .slice(0, 5)
               .map((finding, index) => (
@@ -241,14 +267,16 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
               ))}
           </div>
         </div>
+        )}
 
         {/* Earning Opportunities */}
+        {hasFindings && (
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
             🎮 Các cơ hội kiếm {tokenName} mới
           </h3>
           <div className="space-y-4">
-            {researchResult.findings
+            {(researchResult.findings || [])
               .filter(f => f.category === 'earning')
               .slice(0, 6)
               .map((finding, index) => (
@@ -270,8 +298,10 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
               ))}
           </div>
         </div>
+        )}
 
         {/* Development & Partnerships */}
+        {hasFindings && (
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
             🔧 Phát triển & Đối tác
@@ -281,7 +311,7 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
             <div>
               <h4 className="font-semibold text-gray-900 mb-3 text-lg">🛠️ Phát triển</h4>
               <div className="space-y-3">
-                {researchResult.findings
+                {(researchResult.findings || [])
                   .filter(f => f.category === 'development')
                   .slice(0, 3)
                   .map((finding, index) => (
@@ -304,7 +334,7 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
             <div>
               <h4 className="font-semibold text-gray-900 mb-3 text-lg">🤝 Đối tác</h4>
               <div className="space-y-3">
-                {researchResult.findings
+                {(researchResult.findings || [])
                   .filter(f => f.category === 'partnership')
                   .slice(0, 3)
                   .map((finding, index) => (
@@ -324,8 +354,10 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
             </div>
           </div>
         </div>
+        )}
 
         {/* Governance & Airdrops */}
+        {hasFindings && (
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
             🗳️ Quản trị & Airdrop
@@ -335,7 +367,7 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
             <div>
               <h4 className="font-semibold text-gray-900 mb-3 text-lg">🗳️ Quản trị</h4>
               <div className="space-y-3">
-                {researchResult.findings
+                {(researchResult.findings || [])
                   .filter(f => f.category === 'governance')
                   .slice(0, 3)
                   .map((finding, index) => (
@@ -358,7 +390,7 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
             <div>
               <h4 className="font-semibold text-gray-900 mb-3 text-lg">🎁 Airdrop</h4>
               <div className="space-y-3">
-                {researchResult.findings
+                {(researchResult.findings || [])
                   .filter(f => f.category === 'airdrop')
                   .slice(0, 3)
                   .map((finding, index) => (
@@ -378,8 +410,10 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
             </div>
           </div>
         </div>
+        )}
 
         {/* Summary Table */}
+        {hasFindings && (
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-xl font-bold text-gray-900 mb-4">📌 Tóm tắt theo mục tiêu</h3>
           <div className="overflow-x-auto">
@@ -400,7 +434,7 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
                     Roadmap quan trọng
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">
-                    {researchResult.findings
+                    {(researchResult.findings || [])
                       .filter(f => f.category === 'roadmap')
                       .slice(0, 3)
                       .map(f => f.title)
@@ -412,7 +446,7 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
                     Tokenomics
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">
-                    {researchResult.findings
+                    {(researchResult.findings || [])
                       .filter(f => f.category === 'tokenomics')
                       .slice(0, 2)
                       .map(f => f.title)
@@ -424,7 +458,7 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
                     Nguồn kiếm {tokenName}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">
-                    {researchResult.findings
+                    {(researchResult.findings || [])
                       .filter(f => f.category === 'earning')
                       .slice(0, 3)
                       .map(f => f.title)
@@ -436,7 +470,7 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
                     Phát triển & Đối tác
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">
-                    {researchResult.findings
+                    {(researchResult.findings || [])
                       .filter(f => f.category === 'development' || f.category === 'partnership')
                       .slice(0, 3)
                       .map(f => f.title)
@@ -448,7 +482,7 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
                     Quản trị & Airdrop
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">
-                    {researchResult.findings
+                    {(researchResult.findings || [])
                       .filter(f => f.category === 'governance' || f.category === 'airdrop')
                       .slice(0, 2)
                       .map(f => f.title)
@@ -467,12 +501,14 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
             </table>
           </div>
         </div>
+        )}
 
         {/* Sources */}
+        {hasFindings && (
         <div className="bg-white p-6 rounded-lg shadow-sm border">
           <h3 className="text-xl font-bold text-gray-900 mb-4">🌐 Nguồn tham khảo</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {researchResult.sources.slice(0, 12).map((source, index) => (
+            {(researchResult.sources || []).slice(0, 12).map((source, index) => (
               <div key={source.id} className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg">
                 <span className={`w-2 h-2 rounded-full ${source.isOfficial ? 'bg-green-500' : source.type === 'ai' ? 'bg-purple-500' : 'bg-blue-500'}`}></span>
                 <span className="text-sm font-medium text-gray-900">{source.name}</span>
@@ -486,13 +522,15 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
             ))}
           </div>
           <div className="mt-4 text-sm text-gray-600">
-            <p>📊 Tổng cộng: <strong>{researchResult.metadata.totalSources}</strong> findings từ <strong>{researchResult.sources.length}</strong> nguồn khác nhau</p>
-            <p>✅ Nguồn chính thức: <strong>{researchResult.metadata.officialSources}</strong> sources</p>
-            <p>🤖 AI Analysis: <strong>{researchResult.sources.filter(s => s.type === 'ai').length}</strong> sources</p>
+            <p>📊 Tổng cộng: <strong>{researchResult.metadata?.totalSources || 0}</strong> findings từ <strong>{(researchResult.sources || []).length}</strong> nguồn khác nhau</p>
+            <p>✅ Nguồn chính thức: <strong>{researchResult.metadata?.officialSources || 0}</strong> sources</p>
+            <p>🤖 AI Analysis: <strong>{(researchResult.sources || []).filter(s => s.type === 'ai').length}</strong> sources</p>
           </div>
         </div>
+        )}
 
         {/* Conclusion */}
+        {hasFindings && (
         <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg border-l-4 border-green-500">
           <h3 className="text-lg font-semibold text-gray-900 mb-3">✅ Kết luận</h3>
           <div className="space-y-3">
@@ -500,22 +538,22 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
               Sắp tới (tháng 7–8/2025) có nhiều hoạt động quan trọng cho <strong>{tokenName}</strong>:
             </p>
             <ul className="list-disc list-inside space-y-1 text-gray-700">
-              <li><strong>Roadmap:</strong> {researchResult.findings
+              <li><strong>Roadmap:</strong> {(researchResult.findings || [])
                 .filter(f => f.category === 'roadmap')
                 .slice(0, 3)
                 .map(f => f.title)
-                .join(', ')}</li>
-              <li><strong>Tokenomics:</strong> {researchResult.findings
+                .join(', ') || 'N/A'}</li>
+              <li><strong>Tokenomics:</strong> {(researchResult.findings || [])
                 .filter(f => f.category === 'tokenomics')
                 .slice(0, 2)
                 .map(f => f.title)
-                .join(', ')}</li>
-              <li><strong>Earning:</strong> {researchResult.findings
+                .join(', ') || 'N/A'}</li>
+              <li><strong>Earning:</strong> {(researchResult.findings || [])
                 .filter(f => f.category === 'earning')
                 .slice(0, 3)
                 .map(f => f.title)
-                .join(', ')}</li>
-              <li><strong>Development:</strong> {researchResult.findings
+                .join(', ') || 'N/A'}</li>
+              <li><strong>Development:</strong> {(researchResult.findings || [])
                 .filter(f => f.category === 'development')
                 .slice(0, 2)
                 .map(f => f.title)
@@ -526,8 +564,10 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
             </p>
           </div>
         </div>
+        )}
 
         {/* Confidence Score */}
+        {hasFindings && (
         <div className="bg-white p-4 rounded-lg shadow-sm border">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700">Độ tin cậy nghiên cứu</span>
@@ -543,6 +583,7 @@ export default function AIResearch({ tokenId, tokenData }: AIResearchProps) {
             Dựa trên {researchResult.metadata.totalSources} nguồn ({researchResult.metadata.officialSources} chính thức)
           </div>
         </div>
+        )}
       </div>
     );
   };

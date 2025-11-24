@@ -175,9 +175,30 @@ export class MultiPricingService {
   // CoinGecko API (Last resort)
   private static async getCoinGeckoPrices(tokenIds: string[]): Promise<PricingResult> {
     try {
+      // Token ID mapping: coinpaprika ID -> coingecko ID
+      const tokenMapping: Record<string, string> = {
+        'btc-bitcoin': 'bitcoin',
+        'eth-ethereum': 'ethereum',
+        'ada-cardano': 'cardano',
+        'dot-polkadot': 'polkadot',
+        'sol-solana': 'solana',
+        'link-chainlink': 'chainlink',
+        'ltc-litecoin': 'litecoin',
+        'bch-bitcoin-cash': 'bitcoin-cash',
+        'xlm-stellar': 'stellar',
+        'xmr-monero': 'monero',
+      };
+
+      // Map token IDs to CoinGecko format
+      const mappedIds = tokenIds.map(id => tokenMapping[id] || id);
+      const idToOriginal: Record<string, string> = {};
+      tokenIds.forEach((originalId, index) => {
+        idToOriginal[mappedIds[index]] = originalId;
+      });
+
       const response = await axios.get(`${this.COINGECKO_BASE_URL}/simple/price`, {
         params: {
-          ids: tokenIds.join(','),
+          ids: mappedIds.join(','),
           vs_currencies: 'usd',
           include_24hr_change: true,
           include_24hr_vol: true,
@@ -190,11 +211,12 @@ export class MultiPricingService {
       });
 
       const prices: Record<string, TokenPrice> = {};
-      Object.entries(response.data).forEach(([tokenId, data]: [string, any]) => {
-        prices[tokenId] = {
-          id: tokenId,
-          symbol: tokenId.toUpperCase(),
-          name: tokenId,
+      Object.entries(response.data).forEach(([geckoId, data]: [string, any]) => {
+        const originalId = idToOriginal[geckoId] || geckoId;
+        prices[originalId] = {
+          id: originalId,
+          symbol: originalId.toUpperCase(),
+          name: originalId,
           price: data.usd || 0,
           change24h: data.usd_24h_change || 0,
           volume24h: data.usd_24h_vol || 0,
@@ -265,8 +287,6 @@ export class MultiPricingService {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`🔍 CoinPaprika search attempt ${attempt} for "${query}"`);
-        
         const response = await axios.get(`${this.COINPAPRIKA_BASE_URL}/search`, {
           params: { 
             q: query,
@@ -281,8 +301,6 @@ export class MultiPricingService {
 
         const results = response.data;
         const currencies = results.currencies || [];
-        
-        console.log(`✅ CoinPaprika found ${currencies.length} currencies for "${query}"`);
 
         // Format to match CoinGecko structure for compatibility
         const formattedResults = currencies.map((coin: any) => ({

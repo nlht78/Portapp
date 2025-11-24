@@ -3,6 +3,125 @@ import { AIResearchService } from '../services/ai-research.service';
 import { ResearchQuery, ResearchResponse } from '../interfaces/ai-research.interface';
 
 export class AIResearchController {
+  /**
+   * Health check endpoint for AI provider system
+   * Returns provider availability, success rates, and cache statistics
+   */
+  static async getHealth(req: Request, res: Response) {
+    try {
+      const providerManager = AIResearchService.getProviderManager();
+      
+      if (!providerManager) {
+        return res.status(503).json({
+          status: 503,
+          message: 'AI Provider Manager not initialized',
+          metadata: {
+            healthy: false,
+            error: 'Provider manager not available',
+          },
+        });
+      }
+
+      // Get all providers
+      const providers = providerManager.getProviders();
+      
+      // Get health information for each provider
+      const providerHealth = providers.map(provider => {
+        const health = providerManager.getProviderHealth(provider.name);
+        const successRate = providerManager.getProviderSuccessRate(provider.name);
+        
+        return {
+          name: provider.name,
+          available: provider.isAvailable(),
+          enabled: provider.config.enabled,
+          priority: provider.config.priority,
+          disabled: health?.disabled || false,
+          disabledUntil: health?.disabledUntil ? new Date(health.disabledUntil).toISOString() : null,
+          successCount: health?.successCount || 0,
+          failureCount: health?.failureCount || 0,
+          consecutiveFailures: health?.consecutiveFailures || 0,
+          successRate: successRate !== null ? parseFloat((successRate * 100).toFixed(2)) : 0,
+          lastFailureTime: health?.lastFailureTime ? new Date(health.lastFailureTime).toISOString() : null,
+        };
+      });
+
+      // Get cache statistics
+      const cacheMetrics = providerManager.getCacheMetrics();
+      const cacheStats = {
+        enabled: process.env.AI_RESPONSE_CACHE_ENABLED !== 'false',
+        hits: cacheMetrics.hits,
+        misses: cacheMetrics.misses,
+        hitRate: parseFloat((cacheMetrics.hitRate * 100).toFixed(2)),
+        size: cacheMetrics.size,
+        ttl: parseInt(process.env.AI_RESPONSE_CACHE_TTL || '3600000', 10),
+      };
+
+      // Get metrics summary
+      const metricsService = providerManager.getMetricsService();
+      const metricsSummary = metricsService.getMetricsSummary();
+
+      // Get cost tracking information
+      const costTracker = providerManager.getCostTracker();
+      const costSummaries = costTracker.getAllDailyCostSummaries();
+      const costConfig = costTracker.getConfig();
+
+      const costData = {
+        enabled: costConfig.enabled,
+        dailyLimit: costConfig.dailyLimitUSD,
+        alertThreshold: costConfig.alertThresholdUSD,
+        providers: costSummaries.map(summary => ({
+          name: summary.provider,
+          todayCost: parseFloat(summary.totalCost.toFixed(4)),
+          requests: summary.totalRequests,
+          tokens: summary.totalTokens,
+          avgCostPerRequest: parseFloat(summary.averageCostPerRequest.toFixed(6)),
+        })),
+        totalCostToday: parseFloat(
+          costSummaries.reduce((sum, s) => sum + s.totalCost, 0).toFixed(4)
+        ),
+      };
+
+      // Determine overall health status
+      const availableProviders = providerHealth.filter(p => p.available && !p.disabled);
+      const healthy = availableProviders.length > 0 && metricsSummary.healthy;
+
+      const healthData = {
+        status: healthy ? 'healthy' : 'degraded',
+        timestamp: new Date().toISOString(),
+        strategy: providerManager.getStrategy(),
+        providers: providerHealth,
+        cache: cacheStats,
+        metrics: {
+          totalRequests: metricsSummary.totalRequests,
+          successRate: metricsSummary.successRate,
+          averageResponseTime: metricsSummary.averageResponseTime,
+          providers: metricsSummary.providers,
+        },
+        costs: costData,
+        summary: {
+          totalProviders: providers.length,
+          availableProviders: availableProviders.length,
+          disabledProviders: providerHealth.filter(p => p.disabled).length,
+        },
+      };
+
+      res.json({
+        status: 200,
+        message: 'Health check completed',
+        metadata: healthData,
+      });
+    } catch (error) {
+      console.error('Error in health check:', error);
+      res.status(500).json({
+        status: 500,
+        message: 'Internal server error during health check',
+        metadata: {
+          healthy: false,
+          error: (error as Error).message,
+        },
+      });
+    }
+  }
   static async researchToken(req: Request, res: Response) {
     try {
       const { tokenId } = req.params;

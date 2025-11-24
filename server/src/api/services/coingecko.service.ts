@@ -260,12 +260,10 @@ export class CoinGeckoService {
           try {
             return await this.getMarketChartData(tokenId, days, currency);
           } catch (error) {
-            console.log(`CoinGecko market chart failed for ${days} days, trying CoinCap API`);
             try {
               const coincapId = CoinCapService.getCoinCapId(tokenId);
               return await CoinCapService.getHistory(coincapId, days);
             } catch (coincapError) {
-              console.log('CoinCap API failed, trying CryptoCompare API');
               try {
                 const cryptocompareSymbol = CryptoCompareService.getCryptoCompareSymbol(tokenId);
                 if (days === 1) {
@@ -274,7 +272,6 @@ export class CoinGeckoService {
                   return await CryptoCompareService.getHistory(cryptocompareSymbol, days);
                 }
               } catch (cryptocompareError) {
-                console.log('CryptoCompare API also failed, using mock data');
                 return this.generateMockChartData(tokenId, days);
               }
             }
@@ -288,12 +285,10 @@ export class CoinGeckoService {
           }
           if (error.response?.status === 429) {
             // Rate limited, try CoinCap API
-            console.log('CoinGecko rate limited, trying CoinCap API');
             try {
               const coincapId = CoinCapService.getCoinCapId(tokenId);
               return await CoinCapService.getHistory(coincapId, days);
             } catch (coincapError) {
-              console.log('CoinCap API failed, trying CryptoCompare API');
               try {
                 const cryptocompareSymbol = CryptoCompareService.getCryptoCompareSymbol(tokenId);
                 if (days === 1) {
@@ -302,19 +297,16 @@ export class CoinGeckoService {
                   return await CryptoCompareService.getHistory(cryptocompareSymbol, days);
                 }
               } catch (cryptocompareError) {
-                console.log('CryptoCompare API also failed, using mock data');
                 return this.generateMockChartData(tokenId, days);
               }
             }
           }
           if (error.response?.status === 401) {
             // Authentication error, try CoinCap API
-            console.log('CoinGecko authentication error, trying CoinCap API');
             try {
               const coincapId = CoinCapService.getCoinCapId(tokenId);
               return await CoinCapService.getHistory(coincapId, days);
             } catch (coincapError) {
-              console.log('CoinCap API failed, trying CryptoCompare API');
               try {
                 const cryptocompareSymbol = CryptoCompareService.getCryptoCompareSymbol(tokenId);
                 if (days === 1) {
@@ -323,7 +315,6 @@ export class CoinGeckoService {
                   return await CryptoCompareService.getHistory(cryptocompareSymbol, days);
                 }
               } catch (cryptocompareError) {
-                console.log('CryptoCompare API also failed, using mock data');
                 return this.generateMockChartData(tokenId, days);
               }
             }
@@ -332,10 +323,8 @@ export class CoinGeckoService {
         
         if (attempt === maxRetries) {
           // Skip CoinCap (currently having issues) and go directly to CryptoCompare
-          console.log('CoinGecko rate limited, trying CryptoCompare API');
           try {
             const cryptocompareSymbol = CryptoCompareService.getCryptoCompareSymbol(tokenId);
-            console.log(`🟡 Using CryptoCompare for ${tokenId} → ${cryptocompareSymbol}`);
             
             if (days === 1) {
               return await CryptoCompareService.getHourlyHistory(cryptocompareSymbol);
@@ -343,8 +332,6 @@ export class CoinGeckoService {
               return await CryptoCompareService.getHistory(cryptocompareSymbol, days);
             }
           } catch (cryptocompareError) {
-            console.log('CryptoCompare API also failed, using mock data');
-            console.warn('CryptoCompare error:', cryptocompareError);
             return this.generateMockChartData(tokenId, days);
           }
         }
